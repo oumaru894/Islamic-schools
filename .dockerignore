@@ -1,0 +1,12 @@
+node_modules
+server/node_modules
+dist
+*.log
+.vscode
+.DS_Store
+server/data
+server/data/*.db
+server/data/*.db-journal
+.git
+.gitignore
+README_INIT.md

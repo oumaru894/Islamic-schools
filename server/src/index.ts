@@ -409,6 +409,23 @@ app.delete('/api/superadmin/users/:id', authenticateToken, (req: AuthenticatedRe
 });
 
 const port = process.env.PORT || 4000;
+// If a built frontend exists at the repository root `dist/`, serve it as static files.
+// This allows a single server image to serve both API and frontend in production.
+try {
+  const clientDist = path.join(__dirname, '..', '..', 'dist');
+  if (fs.existsSync(clientDist)) {
+    app.use(express.static(clientDist));
+    // Serve index.html for any non-API route so client-side routing works.
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/data')) return next();
+      res.sendFile(path.join(clientDist, 'index.html'));
+    });
+    console.log('Serving static frontend from', clientDist);
+  }
+} catch (e) {
+  console.warn('Error configuring static frontend serving:', e);
+}
+
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Database initialized with ${schoolService.getAllSchools().length} schools`);
