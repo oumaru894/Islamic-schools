@@ -1,20 +1,20 @@
 # Server for Liberia Islamic Schools Directory
 
-This Express + TypeScript server provides REST endpoints for managing Islamic schools data with a SQLite database backend.
+This Express + TypeScript server provides REST endpoints for managing Islamic schools data and uses Postgres as the single supported database backend.
 
 ## Quick Start
 
 1. `cd server`
 2. `npm install`
-3. `npm run dev` (or `npm run seed` to seed the database manually)
+3. Ensure `DATABASE_URL` is set (Postgres connection string), then run `npm run dev` (or `npm run seed` to seed the database manually)
 
 The server defaults to port 4000. The database is automatically initialized and seeded on first startup if empty.
 
-## Database
+## Database (Postgres only)
 
-The server uses SQLite with `better-sqlite3`. The database file is stored in `server/data/schools.db`.
+This server requires a Postgres database. Set the `DATABASE_URL` environment variable to point to your Postgres instance (for example: `postgres://user:pass@host:5432/dbname`).
 
-- The database is automatically initialized when the server starts
+- The database is automatically initialized when the server starts (schema creation is handled by the adapter)
 - If the database is empty, it will be automatically seeded with initial school data
 - To manually seed the database: `npm run seed`
 
@@ -83,7 +83,7 @@ The system uses JWT (JSON Web Tokens) for authentication. Users must:
 - `school_leadership` — leadership members for each school
 - `users` — staff/administrator accounts with authentication
 
-All data is persisted in SQLite and survives server restarts.
+All data is persisted in Postgres and survives server restarts.
 
 ## Environment Variables
 

@@ -18,7 +18,7 @@ const app = express();
 
 // Configure CORS to allow frontend requests
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'https://islamic-schools-1.onrender.com' || 'http://localhost:3000',
   credentials: true
 }));
 

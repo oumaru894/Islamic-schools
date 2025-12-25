@@ -76,6 +76,7 @@ function createPostgresAdapter(): any {
             mission TEXT,
             vision TEXT,
             core_values TEXT,
+            theme TEXT,
             founded INTEGER NOT NULL,
             students INTEGER NOT NULL,
             rating REAL NOT NULL,
