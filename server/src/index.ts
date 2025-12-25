@@ -430,3 +430,15 @@ app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
   console.log(`Database initialized with ${schoolService.getAllSchools().length} schools`);
 });
+
+// Health endpoint for load balancers and platform checks
+app.get('/health', (req, res) => {
+  try {
+    // simple DB check
+    const ok = Array.isArray(schoolService.getAllSchools());
+    if (!ok) return res.status(500).json({ status: 'error' });
+    res.json({ status: 'ok' });
+  } catch (err) {
+    res.status(500).json({ status: 'error' });
+  }
+});
