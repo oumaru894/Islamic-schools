@@ -1,0 +1,115 @@
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
+
+# Liberia Islamic Schools Directory
+
+A comprehensive directory application for Islamic schools across Liberia, built with React, Express, and SQLite.
+
+## Features
+
+- Browse and search Islamic schools by county, type, and location
+- View detailed school profiles with contact information and features
+- AI-powered chat assistant for school information
+- Admin interface for managing school listings
+- Database-backed with SQLite for persistent data storage
+
+## Tech Stack
+
+- **Frontend:** React, TypeScript, Vite
+- **Backend:** Express.js, TypeScript
+- **Database:** SQLite (better-sqlite3)
+- **AI:** Google Gemini API
+
+## Prerequisites
+
+- Node.js (v16 or higher)
+- npm or yarn
+
+## Setup Instructions
+
+### 1. Install Frontend Dependencies
+
+```bash
+npm install
+```
+
+### 2. Install Backend Dependencies
+
+```bash
+cd server
+npm install
+cd ..
+```
+
+### 3. Configure Environment Variables
+
+Create a `.env.local` file in the root directory (if it doesn't exist) and add your Gemini API key:
+
+```
+GEMINI_API_KEY=your_api_key_here
+VITE_API_URL=http://localhost:4000/api
+```
+
+### 4. Start the Backend Server
+
+In a terminal, start the backend server:
+
+```bash
+cd server
+npm run dev
+```
+
+The server will start on `http://localhost:4000` and automatically initialize the database with seed data if it's empty.
+
+### 5. Start the Frontend
+
+In another terminal, start the frontend development server:
+
+```bash
+npm run dev
+```
+
+The frontend will start on `http://localhost:3000`.
+
+## Database
+
+The application uses SQLite for data persistence:
+
+- Database file: `server/data/schools.db`
+- The database is automatically initialized on first server startup
+- To manually seed the database: `cd server && npm run seed`
+
+### Migration caution
+
+The server contains migrations which may recreate the `users` table to expand the allowed roles (for example adding `superadmin`). These migrations attempt to preserve data but can be destructive on customized or production databases. Always backup `server/data/schools.db` before starting the server or running migrations in a production environment.
+
+## Project Structure
+
+```
+.
+├── components/          # React components
+├── pages/              # Page components
+├── services/           # API service functions
+├── server/             # Backend Express server
+│   ├── src/
+│   │   ├── database.ts # Database setup and schema
+│   │   ├── seed.ts     # Database seeding script
+│   │   ├── schoolService.ts # School data service layer
+│   │   └── index.ts    # Express server entry point
+│   └── data/           # SQLite database files
+└── types.ts            # TypeScript type definitions
+```
+
+## API Endpoints
+
+- `GET /api/schools` - List all schools
+- `GET /api/schools/:id` - Get a single school
+- `POST /api/schools` - Create a new school
+- `PUT /api/schools/:id` - Update a school
+- `DELETE /api/schools/:id` - Delete a school
+- `GET /api/search?q=term` - Search schools
+
+## View your app in AI Studio
+
+https://ai.studio/apps/drive/1MZGQzBLBQwJul-956sKf3iX0Ct_XxKg6
