@@ -33,8 +33,11 @@ COPY --from=server-build /server/node_modules ./server/node_modules
 # copy built frontend
 COPY --from=frontend-build /app/dist ./dist
 # Do not copy the server database into the image. The server will initialize data on first run
+ARG DATABASE_URL="postgresql://postgres:krJELbRbVdFgRTnzOnIoGPoXbogUeEQT@shuttle.proxy.rlwy.net:53650/railway"
+ENV DATABASE_URL=${DATABASE_URL}
 ENV PORT=4000
 EXPOSE 4000
 CMD ["node", "server/dist/index.js"]
+
 
 

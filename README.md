@@ -113,3 +113,22 @@ The server contains migrations which may recreate the `users` table to expand th
 ## View your app in AI Studio
 
 https://ai.studio/apps/drive/1MZGQzBLBQwJul-956sKf3iX0Ct_XxKg6
+
+## Docker runtime (Postgres)
+
+The project Dockerfile supports running the server and serving the built frontend. The image accepts a build-time ARG `DATABASE_URL` which is set as the runtime `DATABASE_URL` environment variable.
+
+Build the image (you can pass your own DATABASE_URL at build time):
+
+```bash
+docker build --build-arg DATABASE_URL="postgresql://postgres:..." -t schools-directory:latest .
+```
+
+Recommended: do not bake secrets into the image. Instead pass the DB URL at runtime:
+
+```bash
+docker run -p 4000:4000 -e DATABASE_URL="postgresql://postgres:..." schools-directory:latest
+```
+
+This will start the API on port 4000. Health check: GET /health
+

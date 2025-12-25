@@ -1,3 +1,7 @@
+// Load environment variables early so DATABASE_URL is available to database adapter
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
@@ -22,15 +26,27 @@ app.use(cors({
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
-// Initialize database on startup
-initializeDatabase();
+// Initialize database on startup (database.initializeDatabase may be async for Postgres)
+async function start() {
+  await initializeDatabase();
 
-// Seed database if empty (optional - remove if you don't want auto-seeding)
-const schoolCount = schoolService.getAllSchools().length;
-if (schoolCount === 0) {
-  console.log('Database is empty, seeding...');
-  seedDatabase();
+    // Seed database if empty (optional - remove if you don't want auto-seeding)
+    try {
+      const all = await (schoolService as any).getAllSchools();
+      const schoolCount = Array.isArray(all) ? all.length : 0;
+      if (schoolCount === 0) {
+        console.log('Database is empty, seeding...');
+        await seedDatabase();
+      }
+    } catch (e) {
+      console.warn('Seeding skipped:', e);
+    }
 }
+
+start().catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
+});
 
 // Ensure uploads directory exists and serve it
 const uploadsDir = path.join(__dirname, '..', 'data', 'uploads');
@@ -41,9 +57,9 @@ try {
 }
 app.use('/data/uploads', express.static(uploadsDir));
 
-app.get('/api/schools', (req, res) => {
+app.get('/api/schools', async (req, res) => {
   try {
-    const schools = schoolService.getAllSchools();
+    const schools = await (schoolService as any).getAllSchools();
     res.json(schools);
   } catch (error) {
     console.error('Error fetching schools:', error);
@@ -51,9 +67,9 @@ app.get('/api/schools', (req, res) => {
   }
 });
 
-app.get('/api/schools/:id', (req, res) => {
+app.get('/api/schools/:id', async (req, res) => {
   try {
-    const school = schoolService.getSchoolById(req.params.id);
+    const school = await (schoolService as any).getSchoolById(req.params.id);
     if (!school) {
       return res.status(404).json({ error: 'School not found' });
     }
@@ -74,11 +90,13 @@ app.post('/api/schools/:id/testimonials', (req, res) => {
     if (!school) return res.status(404).json({ error: 'School not found' });
 
     // Insert testimonial
-    const stmt = db.prepare(`INSERT INTO school_testimonials (school_id, author, title, text) VALUES (?, ?, ?, ?)`);
-    const info = stmt.run(req.params.id, author || null, title || null, text);
-
-    const inserted = db.prepare(`SELECT id, author, title, text, created_at as createdAt FROM school_testimonials WHERE id = ?`).get(info.lastInsertRowid);
-    res.status(201).json(inserted);
+    (async () => {
+      const stmt: any = db.prepare(`INSERT INTO school_testimonials (school_id, author, title, text) VALUES (?, ?, ?, ?)`);
+      const info = await stmt.run(req.params.id, author || null, title || null, text);
+      const sel: any = db.prepare(`SELECT id, author, title, text, created_at as createdAt FROM school_testimonials WHERE id = ?`);
+      const inserted = await sel.get(info.lastInsertRowid);
+      res.status(201).json(inserted);
+    })().catch(err => { console.error('Error adding testimonial:', err); res.status(500).json({ error: 'Internal server error' }); });
   } catch (error) {
     console.error('Error adding testimonial:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -86,9 +104,9 @@ app.post('/api/schools/:id/testimonials', (req, res) => {
 });
 
 // Public endpoints - no authentication required
-app.post('/api/schools', (req, res) => {
+app.post('/api/schools', async (req, res) => {
   try {
-    const newSchool = schoolService.createSchool(req.body);
+    const newSchool = await (schoolService as any).createSchool(req.body);
     res.status(201).json(newSchool);
   } catch (error) {
     console.error('Error creating school:', error);
@@ -140,12 +158,11 @@ app.get('/api/search', (req, res) => {
 // User authentication endpoints
 app.post('/api/auth/register', (req, res) => {
   try {
-    const user = userService.createUser(req.body);
-    const loginResult = userService.loginUser({
-      email: user.email,
-      password: req.body.password
-    });
-    res.status(201).json(loginResult);
+    (async () => {
+      const user = await (userService as any).createUser(req.body);
+      const loginResult = await (userService as any).loginUser({ email: user.email, password: req.body.password });
+      res.status(201).json(loginResult);
+    })().catch((error: any) => { console.error('Error registering user:', error); res.status(400).json({ error: error.message || 'Registration failed' }); });
   } catch (error: any) {
     console.error('Error registering user:', error);
     res.status(400).json({ error: error.message || 'Registration failed' });
@@ -154,8 +171,10 @@ app.post('/api/auth/register', (req, res) => {
 
 app.post('/api/auth/login', (req, res) => {
   try {
-    const result = userService.loginUser(req.body);
-    res.json(result);
+    (async () => {
+      const result = await (userService as any).loginUser(req.body);
+      res.json(result);
+    })().catch((error: any) => { console.error('Error logging in:', error); res.status(401).json({ error: error.message || 'Login failed' }); });
   } catch (error: any) {
     console.error('Error logging in:', error);
     res.status(401).json({ error: error.message || 'Login failed' });
@@ -168,11 +187,11 @@ app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    const user = userService.getUserById(req.user.userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(user);
+    (async () => {
+      const user = await (userService as any).getUserById(req.user!.userId);
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      res.json(user);
+    })().catch(err => { console.error('Error fetching user:', err); res.status(500).json({ error: 'Internal server error' }); });
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -182,8 +201,10 @@ app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res) => {
 // Get users for a school (requires authentication)
 app.get('/api/schools/:id/users', authenticateToken, requireSchoolAccess, (req: AuthenticatedRequest, res) => {
   try {
-    const users = userService.getUsersBySchool(req.params.id);
-    res.json(users);
+    (async () => {
+      const users = await (userService as any).getUsersBySchool(req.params.id);
+      res.json(users);
+    })().catch(err => { console.error('Error fetching school users:', err); res.status(500).json({ error: 'Internal server error' }); });
   } catch (error) {
     console.error('Error fetching school users:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -358,9 +379,11 @@ app.post('/api/superadmin/create-admin', authenticateToken, (req: AuthenticatedR
   // debug logging
   console.log('superadmin create request by:', req.user?.email, 'role:', req.user?.role);
   console.log('payload:', req.body);
-  const { email, password, name, role, school_id } = req.body;
-    const user = userService.createUser({ email, password, name, role, school_id });
-    res.status(201).json(user);
+      const { email, password, name, role, school_id } = req.body;
+      (async () => {
+        const user = await (userService as any).createUser({ email, password, name, role, school_id });
+        res.status(201).json(user);
+      })().catch((error: any) => { console.error('Error creating admin by superadmin:', error); res.status(400).json({ error: error.message || 'Failed to create admin' }); });
   } catch (error: any) {
     console.error('Error creating admin by superadmin:', error);
     res.status(400).json({ error: error.message || 'Failed to create admin' });
@@ -371,8 +394,11 @@ app.post('/api/superadmin/create-admin', authenticateToken, (req: AuthenticatedR
 app.get('/api/superadmin/users', authenticateToken, (req: AuthenticatedRequest, res) => {
   try {
     if (!req.user || req.user.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin access required' });
-    const rows = db.prepare('SELECT id, email, name, role, school_id, is_active, created_at, updated_at FROM users ORDER BY name').all();
-    res.json(rows.map((r: any) => ({ ...r, is_active: Boolean(r.is_active) })));
+    (async () => {
+      const stmt: any = db.prepare('SELECT id, email, name, role, school_id, is_active, created_at, updated_at FROM users ORDER BY name');
+      const rows = await stmt.all();
+      res.json(rows.map((r: any) => ({ ...r, is_active: Boolean(r.is_active) })));
+    })().catch(err => { console.error('Error listing users for superadmin:', err); res.status(500).json({ error: 'Internal server error' }); });
   } catch (error) {
     console.error('Error listing users for superadmin:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -385,9 +411,11 @@ app.put('/api/superadmin/users/:id', authenticateToken, (req: AuthenticatedReque
     if (!req.user || req.user.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin access required' });
     const id = Number(req.params.id);
     const updates = req.body;
-    const updated = userService.updateUser(id, updates);
-    if (!updated) return res.status(404).json({ error: 'User not found' });
-    res.json(updated);
+    (async () => {
+      const updated = await (userService as any).updateUser(id, updates);
+      if (!updated) return res.status(404).json({ error: 'User not found' });
+      res.json(updated);
+    })().catch((error: any) => { console.error('Error updating user by superadmin:', error); res.status(400).json({ error: error.message || 'Failed to update user' }); });
   } catch (error: any) {
     console.error('Error updating user by superadmin:', error);
     res.status(400).json({ error: error.message || 'Failed to update user' });
@@ -399,9 +427,11 @@ app.delete('/api/superadmin/users/:id', authenticateToken, (req: AuthenticatedRe
   try {
     if (!req.user || req.user.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin access required' });
     const id = Number(req.params.id);
-    const ok = userService.deactivateUser(id);
-    if (!ok) return res.status(404).json({ error: 'User not found' });
-    res.json({ message: 'User deactivated' });
+    (async () => {
+      const ok = await (userService as any).deactivateUser(id);
+      if (!ok) return res.status(404).json({ error: 'User not found' });
+      res.json({ message: 'User deactivated' });
+    })().catch((error: any) => { console.error('Error deactivating user by superadmin:', error); res.status(500).json({ error: 'Internal server error' }); });
   } catch (error) {
     console.error('Error deactivating user by superadmin:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -428,14 +458,19 @@ try {
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
-  console.log(`Database initialized with ${schoolService.getAllSchools().length} schools`);
+  try {
+    const count = Array.isArray((schoolService as any).getAllSchools) ? (schoolService as any).getAllSchools().length : 'unknown';
+    console.log(`Database initialized with ${count} schools`);
+  } catch (_) {
+    console.log('Database initialized (count unavailable)');
+  }
 });
 
 // Health endpoint for load balancers and platform checks
 app.get('/health', (req, res) => {
   try {
     // simple DB check
-    const ok = Array.isArray(schoolService.getAllSchools());
+    const ok = Array.isArray((schoolService as any).getAllSchools());
     if (!ok) return res.status(500).json({ status: 'error' });
     res.json({ status: 'ok' });
   } catch (err) {

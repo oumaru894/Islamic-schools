@@ -79,213 +79,147 @@ export function verifyToken(token: string): { userId: number; email: string; sch
 /**
  * Create a new user
  */
-export function createUser(userData: UserCreate): User {
+export async function createUser(userData: UserCreate): Promise<User> {
   // Check if email already exists
-  const existing = db.prepare(`
-    SELECT id FROM users WHERE email = ?
-  `).get(userData.email) as any;
-
-  if (existing) {
-    throw new Error('Email already registered');
-  }
-
-  // Validate school exists if school_id is provided
-  if (userData.school_id) {
-    const school = db.prepare(`
-      SELECT id FROM schools WHERE id = ?
-    `).get(userData.school_id) as any;
-
-    if (!school) {
-      throw new Error('School not found');
+  if (db.isPostgres) {
+    const existing = await db.prepare(`SELECT id FROM users WHERE email = ?`).get(userData.email) as any;
+    if (existing) throw new Error('Email already registered');
+    if (userData.school_id) {
+      const school = await db.prepare(`SELECT id FROM schools WHERE id = ?`).get(userData.school_id) as any;
+      if (!school) throw new Error('School not found');
     }
+    const passwordHash = hashPassword(userData.password);
+    const role = userData.role || 'administrator';
+    const res = await db.prepare(`INSERT INTO users (email, password_hash, name, role, school_id) VALUES (?, ?, ?, ?, ?)`).run(userData.email, passwordHash, userData.name, role, userData.school_id || null);
+  const user = await getUserById(res.lastInsertRowid as number);
+  if (!user) throw new Error('Failed to create user');
+  return user as User;
   }
 
+  // sqlite path
+  const existing = db.prepare(`SELECT id FROM users WHERE email = ?`).get(userData.email) as any;
+  if (existing) throw new Error('Email already registered');
+  if (userData.school_id) {
+    const school = db.prepare(`SELECT id FROM schools WHERE id = ?`).get(userData.school_id) as any;
+    if (!school) throw new Error('School not found');
+  }
   const passwordHash = hashPassword(userData.password);
   const role = userData.role || 'administrator';
-
-  const result = db.prepare(`
-    INSERT INTO users (email, password_hash, name, role, school_id)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(
-    userData.email,
-    passwordHash,
-    userData.name,
-    role,
-    userData.school_id || null
-  );
-
-  const user = getUserById(result.lastInsertRowid as number);
-  if (!user) {
-    throw new Error('Failed to create user');
-  }
-
-  return user;
+  const result = db.prepare(`INSERT INTO users (email, password_hash, name, role, school_id) VALUES (?, ?, ?, ?, ?)`).run(userData.email, passwordHash, userData.name, role, userData.school_id || null);
+  const user = await getUserById(result.lastInsertRowid as number);
+  if (!user) throw new Error('Failed to create user');
+  return user as User;
 }
 
 /**
  * Get user by ID
  */
-export function getUserById(id: number): User | null {
-  const user = db.prepare(`
-    SELECT id, email, name, role, school_id, is_active, created_at, updated_at
-    FROM users WHERE id = ?
-  `).get(id) as any;
-
+export async function getUserById(id: number): Promise<User | null> {
+  if (db.isPostgres) {
+    const user = await db.prepare(`SELECT id, email, name, role, school_id, is_active, created_at, updated_at FROM users WHERE id = ?`).get(id) as any;
+    if (!user) return null;
+    return { ...user, is_active: Boolean(user.is_active) };
+  }
+  const user = db.prepare(`SELECT id, email, name, role, school_id, is_active, created_at, updated_at FROM users WHERE id = ?`).get(id) as any;
   if (!user) return null;
-
-  return {
-    ...user,
-    is_active: Boolean(user.is_active)
-  };
+  return { ...user, is_active: Boolean(user.is_active) };
 }
 
 /**
  * Get user by email
  */
-export function getUserByEmail(email: string): (User & { password_hash: string }) | null {
-  const user = db.prepare(`
-    SELECT id, email, password_hash, name, role, school_id, is_active, created_at, updated_at
-    FROM users WHERE email = ?
-  `).get(email) as any;
-
+export async function getUserByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
+  if (db.isPostgres) {
+    const user = await db.prepare(`SELECT id, email, password_hash, name, role, school_id, is_active, created_at, updated_at FROM users WHERE email = ?`).get(email) as any;
+    if (!user) return null;
+    return { ...user, is_active: Boolean(user.is_active) };
+  }
+  const user = db.prepare(`SELECT id, email, password_hash, name, role, school_id, is_active, created_at, updated_at FROM users WHERE email = ?`).get(email) as any;
   if (!user) return null;
-
-  return {
-    ...user,
-    is_active: Boolean(user.is_active)
-  };
+  return { ...user, is_active: Boolean(user.is_active) };
 }
 
 /**
  * Login user
  */
-export function loginUser(credentials: UserLogin): AuthResponse {
-  const user = getUserByEmail(credentials.email);
-
-  if (!user) {
-    throw new Error('Invalid email or password');
-  }
-
-  if (!user.is_active) {
-    throw new Error('Account is deactivated');
-  }
-
-  if (!verifyPassword(credentials.password, user.password_hash)) {
-    throw new Error('Invalid email or password');
-  }
-
+export async function loginUser(credentials: UserLogin): Promise<AuthResponse> {
+  const user = await getUserByEmail(credentials.email) as any;
+  if (!user) throw new Error('Invalid email or password');
+  if (!user.is_active) throw new Error('Account is deactivated');
+  if (!verifyPassword(credentials.password, user.password_hash)) throw new Error('Invalid email or password');
   const { password_hash, ...userWithoutPassword } = user;
   const token = generateToken(user.id, user.email, user.school_id, user.role as string);
-
-  return {
-    user: userWithoutPassword,
-    token
-  };
+  return { user: userWithoutPassword, token };
 }
 
 /**
  * Check if user can manage a school
  */
-export function canManageSchool(userId: number, schoolId: string): boolean {
-  const user = getUserById(userId);
-  
+export async function canManageSchool(userId: number, schoolId: string): Promise<boolean> {
+  const user = await getUserById(userId);
   if (!user) return false;
   if (!user.is_active) return false;
-  
-  // Administrators can manage their school
-  // Superadmin can manage any school
   if (user.role === 'superadmin') return true;
-
-  if (user.school_id === schoolId && user.role === 'administrator') {
-    return true;
-  }
-
+  if (user.school_id === schoolId && user.role === 'administrator') return true;
   return false;
 }
 
 /**
  * Get all users for a school
  */
-export function getUsersBySchool(schoolId: string): User[] {
-  const users = db.prepare(`
-    SELECT id, email, name, role, school_id, is_active, created_at, updated_at
-    FROM users 
-    WHERE school_id = ? AND is_active = 1
-    ORDER BY name
-  `).all(schoolId) as any[];
-
-  return users.map(user => ({
-    ...user,
-    is_active: Boolean(user.is_active)
-  }));
+export async function getUsersBySchool(schoolId: string): Promise<User[]> {
+  if (db.isPostgres) {
+    const users = await db.prepare(`SELECT id, email, name, role, school_id, is_active, created_at, updated_at FROM users WHERE school_id = ? AND is_active = true ORDER BY name`).all(schoolId) as any[];
+    return users.map(u => ({ ...u, is_active: Boolean(u.is_active) }));
+  }
+  const users = db.prepare(`SELECT id, email, name, role, school_id, is_active, created_at, updated_at FROM users WHERE school_id = ? AND is_active = 1 ORDER BY name`).all(schoolId) as any[];
+  return users.map(user => ({ ...user, is_active: Boolean(user.is_active) }));
 }
 
 /**
  * Update user
  */
-export function updateUser(id: number, updates: Partial<Omit<UserCreate, 'email'>>): User | null {
-  const existing = getUserById(id);
+export async function updateUser(id: number, updates: Partial<Omit<UserCreate, 'email'>>): Promise<User | null> {
+  const existing = await getUserById(id);
   if (!existing) return null;
-
   const updateFields: string[] = [];
   const updateValues: any[] = [];
-
-  if (updates.name !== undefined) {
-    updateFields.push('name = ?');
-    updateValues.push(updates.name);
-  }
-
-  if (updates.role !== undefined) {
-    updateFields.push('role = ?');
-    updateValues.push(updates.role);
-  }
-
+  if (updates.name !== undefined) { updateFields.push('name = ?'); updateValues.push(updates.name); }
+  if (updates.role !== undefined) { updateFields.push('role = ?'); updateValues.push(updates.role); }
   if (updates.school_id !== undefined) {
     if (updates.school_id) {
-      // Validate school exists
-      const school = db.prepare('SELECT id FROM schools WHERE id = ?').get(updates.school_id);
-      if (!school) {
-        throw new Error('School not found');
+      if (db.isPostgres) {
+        const school = await db.prepare('SELECT id FROM schools WHERE id = ?').get(updates.school_id);
+        if (!school) throw new Error('School not found');
+      } else {
+        const school = db.prepare('SELECT id FROM schools WHERE id = ?').get(updates.school_id);
+        if (!school) throw new Error('School not found');
       }
     }
-    updateFields.push('school_id = ?');
-    updateValues.push(updates.school_id || null);
+    updateFields.push('school_id = ?'); updateValues.push(updates.school_id || null);
   }
-
-  if (updates.password !== undefined) {
-    updateFields.push('password_hash = ?');
-    updateValues.push(hashPassword(updates.password));
+  if (updates.password !== undefined) { updateFields.push('password_hash = ?'); updateValues.push(hashPassword(updates.password)); }
+  if (updateFields.length === 0) return existing;
+  updateFields.push('updated_at = CURRENT_TIMESTAMP'); updateValues.push(id);
+  if (db.isPostgres) {
+    await db.prepare(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`).run(...updateValues);
+    return await getUserById(id);
   }
-
-  if (updateFields.length === 0) {
-    return existing;
-  }
-
-  updateFields.push('updated_at = CURRENT_TIMESTAMP');
-  updateValues.push(id);
-
-  db.prepare(`
-    UPDATE users 
-    SET ${updateFields.join(', ')}
-    WHERE id = ?
-  `).run(...updateValues);
-
+  db.prepare(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`).run(...updateValues);
   return getUserById(id);
 }
 
 /**
  * Deactivate user
  */
-export function deactivateUser(id: number): boolean {
-  const user = getUserById(id);
+export async function deactivateUser(id: number): Promise<boolean> {
+  const user = await getUserById(id);
   if (!user) return false;
-
-  db.prepare(`
-    UPDATE users 
-    SET is_active = 0, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).run(id);
-
+  if (db.isPostgres) {
+    await db.prepare(`UPDATE users SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(id);
+    return true;
+  }
+  db.prepare(`UPDATE users SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(id);
   return true;
 }
 
