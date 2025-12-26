@@ -1,12 +1,33 @@
 // Load environment variables early so DATABASE_URL is available to database adapter
 import dotenv from 'dotenv';
 dotenv.config();
+// If important vars aren't set (we may be running from server/), try loading repo root .env manually
+import fs from 'fs';
+import path from 'path';
+const rootEnv = path.resolve(__dirname, '..', '..', '.env');
+if (fs.existsSync(rootEnv)) {
+  try {
+    const raw = fs.readFileSync(rootEnv, 'utf8');
+    for (const line of raw.split(/\r?\n/)) {
+      const m = line.match(/^([^#=\s]+)=(.*)$/);
+      if (!m) continue;
+      const key = m[1];
+      let val = m[2] || '';
+      // strip optional surrounding quotes
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      if (!process.env[key]) process.env[key] = val;
+    }
+  } catch (err) {
+    console.warn('Failed to load root .env:', err);
+  }
+}
 
 import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import fs from 'fs';
-import path from 'path';
+import { v2 as cloudinary } from 'cloudinary';
 import { initializeDatabase } from './database';
 import { seedDatabase } from './seed';
 import * as schoolService from './schoolService';
@@ -56,6 +77,41 @@ try {
   console.warn('Could not create uploads dir:', e);
 }
 app.use('/data/uploads', express.static(uploadsDir));
+
+// Configure Cloudinary from environment. Prefer CLOUDINARY_URL if present.
+if (process.env.CLOUDINARY_URL) {
+  // Parse CLOUDINARY_URL like: cloudinary://<api_key>:<api_secret>@<cloud_name>
+  try {
+    const m = process.env.CLOUDINARY_URL.match(/^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/);
+    if (m) {
+      const api_key = m[1];
+      const api_secret = m[2];
+      const cloud_name = m[3];
+      cloudinary.config({ cloud_name, api_key, api_secret, secure: true });
+      console.log('Cloudinary configured for cloud:', cloud_name);
+    } else {
+      // fallback to passing the raw url
+      cloudinary.config({ cloudinary_url: process.env.CLOUDINARY_URL, secure: true });
+      console.log('Cloudinary configured from CLOUDINARY_URL');
+    }
+  } catch (err) {
+    console.warn('Failed to parse CLOUDINARY_URL:', err);
+    cloudinary.config({ cloudinary_url: process.env.CLOUDINARY_URL, secure: true });
+  }
+} else if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+  console.log('Cloudinary configured from individual CLOUDINARY_* vars for cloud:', process.env.CLOUDINARY_CLOUD_NAME);
+}
+
+// Consider Cloudinary configured when the environment provides credentials.
+if (!(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET))) {
+  console.warn('Cloudinary not configured. Image uploads will fall back to local filesystem. Set CLOUDINARY_URL or CLOUDINARY_* env variables.');
+}
 
 app.get('/api/schools', async (req, res) => {
   try {
@@ -212,25 +268,39 @@ app.get('/api/schools/:id/users', authenticateToken, requireSchoolAccess, (req: 
 });
 
 // Gallery CRUD for a school
-app.post('/api/schools/:id/gallery', authenticateToken, requireSchoolAccess, (req: AuthenticatedRequest, res) => {
+app.post('/api/schools/:id/gallery', authenticateToken, requireSchoolAccess, async (req: AuthenticatedRequest, res) => {
   try {
     const { url, caption, fileData } = req.body as any;
 
-    // If fileData is provided as a DataURL, save it to uploads and use generated URL
+    // If fileData is provided as a DataURL, upload it to Cloudinary (preferred) or fall back to local file
     if (fileData && typeof fileData === 'string' && fileData.startsWith('data:')) {
-      // parse data:[<mediatype>][;base64],<data>
       const matches = fileData.match(/^data:(.+);base64,(.+)$/);
       if (!matches) return res.status(400).json({ error: 'Invalid fileData format' });
-      const mime = matches[1];
       const b64 = matches[2];
-      const ext = mime.split('/').pop() || 'png';
-      const filename = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
-      const filepath = path.join(uploadsDir, filename);
-      const buffer = Buffer.from(b64, 'base64');
-      fs.writeFileSync(filepath, buffer);
+      const dataUri = `data:${matches[1]};base64,${b64}`;
 
-  const publicUrl = `${req.protocol}://${req.get('host')}/data/uploads/${filename}`;
-  const item = schoolService.addGalleryItem(req.params.id, publicUrl, caption);
+      let publicUrl: string;
+      if (cloudinary.config().cloud_name) {
+        // Upload using Cloudinary from the DataURI
+        try {
+          const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/gallery` });
+          publicUrl = uploadResult.secure_url;
+        } catch (err) {
+          console.error('Cloudinary upload error:', err);
+          return res.status(500).json({ error: 'Image upload failed' });
+        }
+      } else {
+        // fallback to filesystem if cloudinary not configured
+        const mime = matches[1];
+        const ext = mime.split('/').pop() || 'png';
+        const filename = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+        const filepath = path.join(uploadsDir, filename);
+        const buffer = Buffer.from(b64, 'base64');
+        fs.writeFileSync(filepath, buffer);
+        publicUrl = `${req.protocol}://${req.get('host')}/data/uploads/${filename}`;
+      }
+
+      const item = schoolService.addGalleryItem(req.params.id, publicUrl, caption);
       return res.status(201).json(item);
     }
 
@@ -301,7 +371,7 @@ app.get('/api/schools/:id/people', authenticateToken, requireSchoolAccess, (req:
   }
 });
 
-app.post('/api/schools/:id/people', authenticateToken, requireSchoolAccess, (req: AuthenticatedRequest, res) => {
+app.post('/api/schools/:id/people', authenticateToken, requireSchoolAccess, async (req: AuthenticatedRequest, res) => {
   try {
     const { name, role, bio, photo, isAdministrator, fileData } = req.body as any;
     if (!name || !role) return res.status(400).json({ error: 'Name and role are required' });
@@ -310,14 +380,25 @@ app.post('/api/schools/:id/people', authenticateToken, requireSchoolAccess, (req
     if (fileData && typeof fileData === 'string' && fileData.startsWith('data:')) {
       const matches = fileData.match(/^data:(.+);base64,(.+)$/);
       if (!matches) return res.status(400).json({ error: 'Invalid fileData format' });
-      const mime = matches[1];
       const b64 = matches[2];
-      const ext = mime.split('/').pop() || 'png';
-      const filename = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
-      const filepath = path.join(uploadsDir, filename);
-      const buffer = Buffer.from(b64, 'base64');
-      fs.writeFileSync(filepath, buffer);
-      photoUrl = `${req.protocol}://${req.get('host')}/data/uploads/${filename}`;
+      const dataUri = `data:${matches[1]};base64,${b64}`;
+      if (cloudinary.config().cloud_name) {
+        try {
+          const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/people` });
+          photoUrl = uploadResult.secure_url;
+        } catch (err) {
+          console.error('Cloudinary upload error:', err);
+          return res.status(500).json({ error: 'Image upload failed' });
+        }
+      } else {
+        const mime = matches[1];
+        const ext = mime.split('/').pop() || 'png';
+        const filename = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+        const filepath = path.join(uploadsDir, filename);
+        const buffer = Buffer.from(b64, 'base64');
+        fs.writeFileSync(filepath, buffer);
+        photoUrl = `${req.protocol}://${req.get('host')}/data/uploads/${filename}`;
+      }
     }
 
     const person = schoolService.addPerson(req.params.id, name, role, bio, photoUrl);
@@ -328,21 +409,32 @@ app.post('/api/schools/:id/people', authenticateToken, requireSchoolAccess, (req
   }
 });
 
-app.put('/api/schools/:id/people/:personId', authenticateToken, requireSchoolAccess, (req: AuthenticatedRequest, res) => {
+app.put('/api/schools/:id/people/:personId', authenticateToken, requireSchoolAccess, async (req: AuthenticatedRequest, res) => {
   try {
     const updates = req.body as any;
     // support fileData for image upload
     if (updates.fileData && typeof updates.fileData === 'string' && updates.fileData.startsWith('data:')) {
       const matches = updates.fileData.match(/^data:(.+);base64,(.+)$/);
       if (!matches) return res.status(400).json({ error: 'Invalid fileData format' });
-      const mime = matches[1];
       const b64 = matches[2];
-      const ext = mime.split('/').pop() || 'png';
-      const filename = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
-      const filepath = path.join(uploadsDir, filename);
-      const buffer = Buffer.from(b64, 'base64');
-      fs.writeFileSync(filepath, buffer);
-      updates.image = `${req.protocol}://${req.get('host')}/data/uploads/${filename}`;
+      const dataUri = `data:${matches[1]};base64,${b64}`;
+      if (cloudinary.config().cloud_name) {
+        try {
+          const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/people` });
+          updates.image = uploadResult.secure_url;
+        } catch (err) {
+          console.error('Cloudinary upload error:', err);
+          return res.status(500).json({ error: 'Image upload failed' });
+        }
+      } else {
+        const mime = matches[1];
+        const ext = mime.split('/').pop() || 'png';
+        const filename = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+        const filepath = path.join(uploadsDir, filename);
+        const buffer = Buffer.from(b64, 'base64');
+        fs.writeFileSync(filepath, buffer);
+        updates.image = `${req.protocol}://${req.get('host')}/data/uploads/${filename}`;
+      }
       delete updates.fileData;
     }
     const updated = schoolService.updatePerson(Number(req.params.personId), updates);

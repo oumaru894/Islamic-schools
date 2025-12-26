@@ -89,3 +89,16 @@ All data is persisted in Postgres and survives server restarts.
 
 - `JWT_SECRET` — Secret key for JWT tokens (default: 'your-secret-key-change-in-production')
   - **Important:** Change this in production!
+
+### Cloudinary (image uploads)
+
+The server can upload images to Cloudinary. Set one of the following options in your environment before starting the server:
+
+- `CLOUDINARY_URL` — a full Cloudinary URL containing credentials (recommended), for example:
+  - `CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>`
+- OR set the individual variables:
+  - `CLOUDINARY_CLOUD_NAME` — your Cloudinary cloud name
+  - `CLOUDINARY_API_KEY` — API key
+  - `CLOUDINARY_API_SECRET` — API secret
+
+If Cloudinary is not configured the server will fall back to saving uploads under `server/data/uploads` and serving them at `/data/uploads/*`.

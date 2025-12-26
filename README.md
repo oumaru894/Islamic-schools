@@ -49,7 +49,8 @@ Create a `.env.local` file in the root directory (if it doesn't exist) and add y
 ```
 GEMINI_API_KEY=your_api_key_here
 # Optional during local development only. When empty the frontend will call /api on the same origin.
-# VITE_API_URL=http://localhost:4000/api
+# Example for the deployed Render backend:
+# VITE_API_URL=https://islamic-schools-1.onrender.com/api
 ```
 
 ### 4. Start the Backend Server
@@ -61,7 +62,7 @@ cd server
 npm run dev
 ```
 
-The server will start on `http://localhost:4000` locally and automatically initialize the database with seed data if it's empty. When deployed (for example to Render), the frontend will call the backend using a relative `/api` path by default so you don't need to hard-code localhost.
+The server will start on `http://localhost:4000` locally and automatically initialize the database with seed data if it's empty. When deployed (for example to Render), the frontend should call the backend using a relative `/api` path by default so you don't need to hard-code localhost. If you prefer to bake the deployed API URL into your build, set `VITE_API_URL` to `https://islamic-schools-1.onrender.com/api` before building.
 
 ### 5. Start the Frontend
 
