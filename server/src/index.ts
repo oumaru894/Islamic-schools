@@ -280,13 +280,15 @@ app.post('/api/schools/:id/gallery', authenticateToken, requireSchoolAccess, asy
       const dataUri = `data:${matches[1]};base64,${b64}`;
 
       let publicUrl: string;
-      if (cloudinary.config().cloud_name) {
+      const cloudinaryConfigured = Boolean(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET));
+      if (cloudinaryConfigured) {
         // Upload using Cloudinary from the DataURI
         try {
           const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/gallery` });
-          publicUrl = uploadResult.secure_url;
+          publicUrl = uploadResult?.secure_url;
+          console.log('Uploaded gallery image to Cloudinary:', publicUrl);
         } catch (err) {
-          console.error('Cloudinary upload error:', err);
+          console.error('Cloudinary upload error (gallery):', err && err.message ? err.message : err);
           return res.status(500).json({ error: 'Image upload failed' });
         }
       } else {
@@ -300,13 +302,23 @@ app.post('/api/schools/:id/gallery', authenticateToken, requireSchoolAccess, asy
         publicUrl = `${req.protocol}://${req.get('host')}/data/uploads/${filename}`;
       }
 
-      const item = schoolService.addGalleryItem(req.params.id, publicUrl, caption);
-      return res.status(201).json(item);
+      try {
+        const item = await schoolService.addGalleryItem(req.params.id, publicUrl, caption);
+        return res.status(201).json(item);
+      } catch (err) {
+        console.error('Error saving gallery item to DB:', err);
+        return res.status(500).json({ error: 'Failed to save gallery item' });
+      }
     }
 
     if (!url) return res.status(400).json({ error: 'Image URL or fileData is required' });
-    const item = schoolService.addGalleryItem(req.params.id, url, caption);
-    res.status(201).json(item);
+    try {
+      const item = await schoolService.addGalleryItem(req.params.id, url, caption);
+      res.status(201).json(item);
+    } catch (err) {
+      console.error('Error saving gallery item (url) to DB:', err);
+      res.status(500).json({ error: 'Failed to save gallery item' });
+    }
   } catch (err) {
     console.error('Error adding gallery item:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -325,12 +337,17 @@ app.delete('/api/schools/:id/gallery/:galleryId', authenticateToken, requireScho
 });
 
 // Leadership (administrators) CRUD for a school - these are non-login personnel entries
-app.post('/api/schools/:id/leadership', authenticateToken, requireSchoolAccess, (req: AuthenticatedRequest, res) => {
+app.post('/api/schools/:id/leadership', authenticateToken, requireSchoolAccess, async (req: AuthenticatedRequest, res) => {
   try {
     const { name, title, bio, photo, displayOrder } = req.body;
     if (!name || !title) return res.status(400).json({ error: 'Name and title are required' });
-    const member = schoolService.addLeadershipMember(req.params.id, name, title, bio, photo, displayOrder);
-    res.status(201).json(member);
+    try {
+      const member = await schoolService.addLeadershipMember(req.params.id, name, title, bio, photo, displayOrder);
+      res.status(201).json(member);
+    } catch (err) {
+      console.error('Error saving leadership member to DB:', err);
+      res.status(500).json({ error: 'Failed to save leadership member' });
+    }
   } catch (err) {
     console.error('Error adding leadership member:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -361,9 +378,9 @@ app.delete('/api/schools/:id/leadership/:memberId', authenticateToken, requireSc
 });
 
 // People CRUD (central staff/administrators table)
-app.get('/api/schools/:id/people', authenticateToken, requireSchoolAccess, (req: AuthenticatedRequest, res) => {
+app.get('/api/schools/:id/people', authenticateToken, requireSchoolAccess, async (req: AuthenticatedRequest, res) => {
   try {
-    const rows = schoolService.getPeopleBySchool(req.params.id);
+    const rows = await schoolService.getPeopleBySchool(req.params.id);
     res.json(rows);
   } catch (err) {
     console.error('Error fetching people:', err);
@@ -401,8 +418,13 @@ app.post('/api/schools/:id/people', authenticateToken, requireSchoolAccess, asyn
       }
     }
 
-    const person = schoolService.addPerson(req.params.id, name, role, bio, photoUrl);
-    res.status(201).json(person);
+    try {
+      const person = await schoolService.addPerson(req.params.id, name, role, bio, photoUrl);
+      res.status(201).json(person);
+    } catch (err) {
+      console.error('Error saving person to DB:', err);
+      res.status(500).json({ error: 'Failed to save person' });
+    }
   } catch (err) {
     console.error('Error adding person:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -418,12 +440,14 @@ app.put('/api/schools/:id/people/:personId', authenticateToken, requireSchoolAcc
       if (!matches) return res.status(400).json({ error: 'Invalid fileData format' });
       const b64 = matches[2];
       const dataUri = `data:${matches[1]};base64,${b64}`;
-      if (cloudinary.config().cloud_name) {
+      const cloudinaryConfigured = Boolean(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET));
+      if (cloudinaryConfigured) {
         try {
           const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/people` });
-          updates.image = uploadResult.secure_url;
+          updates.image = uploadResult?.secure_url;
+          console.log('Uploaded person image to Cloudinary:', updates.image);
         } catch (err) {
-          console.error('Cloudinary upload error:', err);
+          console.error('Cloudinary upload error (person update):', err && err.message ? err.message : err);
           return res.status(500).json({ error: 'Image upload failed' });
         }
       } else {
