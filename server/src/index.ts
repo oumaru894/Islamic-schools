@@ -64,8 +64,8 @@ async function start() {
     }
 }
 
-start().catch(err => {
-  console.error('Failed to initialize database:', err);
+start().catch((err: any) => {
+  console.error('Failed to initialize database:', err && err.message ? err.message : err);
   process.exit(1);
 });
 
@@ -152,7 +152,7 @@ app.post('/api/schools/:id/testimonials', (req, res) => {
       const sel: any = db.prepare(`SELECT id, author, title, text, created_at as createdAt FROM school_testimonials WHERE id = ?`);
       const inserted = await sel.get(info.lastInsertRowid);
       res.status(201).json(inserted);
-    })().catch(err => { console.error('Error adding testimonial:', err); res.status(500).json({ error: 'Internal server error' }); });
+  })().catch((err: any) => { console.error('Error adding testimonial:', err && err.message ? err.message : err); res.status(500).json({ error: 'Internal server error' }); });
   } catch (error) {
     console.error('Error adding testimonial:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -218,7 +218,7 @@ app.post('/api/auth/register', (req, res) => {
       const user = await (userService as any).createUser(req.body);
       const loginResult = await (userService as any).loginUser({ email: user.email, password: req.body.password });
       res.status(201).json(loginResult);
-    })().catch((error: any) => { console.error('Error registering user:', error); res.status(400).json({ error: error.message || 'Registration failed' }); });
+  })().catch((error: any) => { console.error('Error registering user:', error && error.message ? error.message : error); res.status(400).json({ error: error && error.message ? error.message : 'Registration failed' }); });
   } catch (error: any) {
     console.error('Error registering user:', error);
     res.status(400).json({ error: error.message || 'Registration failed' });
@@ -230,7 +230,7 @@ app.post('/api/auth/login', (req, res) => {
     (async () => {
       const result = await (userService as any).loginUser(req.body);
       res.json(result);
-    })().catch((error: any) => { console.error('Error logging in:', error); res.status(401).json({ error: error.message || 'Login failed' }); });
+  })().catch((error: any) => { console.error('Error logging in:', error && error.message ? error.message : error); res.status(401).json({ error: error && error.message ? error.message : 'Login failed' }); });
   } catch (error: any) {
     console.error('Error logging in:', error);
     res.status(401).json({ error: error.message || 'Login failed' });
@@ -287,7 +287,7 @@ app.post('/api/schools/:id/gallery', authenticateToken, requireSchoolAccess, asy
           const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/gallery` });
           publicUrl = uploadResult?.secure_url;
           console.log('Uploaded gallery image to Cloudinary:', publicUrl);
-        } catch (err) {
+        } catch (err: any) {
           console.error('Cloudinary upload error (gallery):', err && err.message ? err.message : err);
           return res.status(500).json({ error: 'Image upload failed' });
         }
@@ -403,8 +403,8 @@ app.post('/api/schools/:id/people', authenticateToken, requireSchoolAccess, asyn
         try {
           const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/people` });
           photoUrl = uploadResult.secure_url;
-        } catch (err) {
-          console.error('Cloudinary upload error:', err);
+        } catch (err: any) {
+          console.error('Cloudinary upload error:', err && err.message ? err.message : err);
           return res.status(500).json({ error: 'Image upload failed' });
         }
       } else {
@@ -446,7 +446,7 @@ app.put('/api/schools/:id/people/:personId', authenticateToken, requireSchoolAcc
           const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/people` });
           updates.image = uploadResult?.secure_url;
           console.log('Uploaded person image to Cloudinary:', updates.image);
-        } catch (err) {
+        } catch (err: any) {
           console.error('Cloudinary upload error (person update):', err && err.message ? err.message : err);
           return res.status(500).json({ error: 'Image upload failed' });
         }
@@ -488,6 +488,34 @@ function requireSuperAdmin(req: AuthenticatedRequest, res: any, next: any) {
   next();
 }
 
+// Debug endpoint: upload a tiny test image and insert a person (only when ENABLE_DEBUG_UPLOADS=1)
+if (process.env.ENABLE_DEBUG_UPLOADS === '1') {
+  app.post('/__debug/test-upload', async (req, res) => {
+    try {
+      const schoolId = String(req.body.schoolId || '1');
+      // 1x1 PNG data URI
+      const dataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAgMBgXqQnE8AAAAASUVORK5CYII=';
+      if (process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)) {
+        try {
+          const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${schoolId}/debug` });
+          const url = uploadResult?.secure_url;
+          console.log('Debug upload result URL:', url);
+          const person = await schoolService.addPerson(schoolId, 'Debug User', 'Tester', 'Debug upload', url);
+          return res.json({ ok: true, person, url });
+        } catch (err: any) {
+          console.error('Debug: Cloudinary upload error:', err && err.message ? err.message : err);
+          return res.status(500).json({ error: 'Cloudinary upload failed', detail: String(err && (err.message || err)) });
+        }
+      } else {
+        return res.status(400).json({ error: 'Cloudinary not configured' });
+      }
+    } catch (err: any) {
+      console.error('Debug upload error:', err && err.message ? err.message : err);
+      res.status(500).json({ error: 'Debug upload failed', detail: String(err && (err.message || err)) });
+    }
+  });
+}
+
 // Create a new admin (superadmin only)
 app.post('/api/superadmin/create-admin', authenticateToken, (req: AuthenticatedRequest, res) => {
   try {
@@ -499,7 +527,7 @@ app.post('/api/superadmin/create-admin', authenticateToken, (req: AuthenticatedR
       (async () => {
         const user = await (userService as any).createUser({ email, password, name, role, school_id });
         res.status(201).json(user);
-      })().catch((error: any) => { console.error('Error creating admin by superadmin:', error); res.status(400).json({ error: error.message || 'Failed to create admin' }); });
+  })().catch((error: any) => { console.error('Error creating admin by superadmin:', error && error.message ? error.message : error); res.status(400).json({ error: error && error.message ? error.message : 'Failed to create admin' }); });
   } catch (error: any) {
     console.error('Error creating admin by superadmin:', error);
     res.status(400).json({ error: error.message || 'Failed to create admin' });
@@ -531,7 +559,7 @@ app.put('/api/superadmin/users/:id', authenticateToken, (req: AuthenticatedReque
       const updated = await (userService as any).updateUser(id, updates);
       if (!updated) return res.status(404).json({ error: 'User not found' });
       res.json(updated);
-    })().catch((error: any) => { console.error('Error updating user by superadmin:', error); res.status(400).json({ error: error.message || 'Failed to update user' }); });
+  })().catch((error: any) => { console.error('Error updating user by superadmin:', error && error.message ? error.message : error); res.status(400).json({ error: error && error.message ? error.message : 'Failed to update user' }); });
   } catch (error: any) {
     console.error('Error updating user by superadmin:', error);
     res.status(400).json({ error: error.message || 'Failed to update user' });
