@@ -44,11 +44,12 @@ cd ..
 
 ### 3. Configure Environment Variables
 
-Create a `.env.local` file in the root directory (if it doesn't exist) and add your Gemini API key:
+Create a `.env.local` file in the root directory (if it doesn't exist) and add your Gemini API key. Optionally set `VITE_API_URL` during local development; in production the frontend will fall back to a relative `/api` path so it will call the same origin as the site (recommended when deploying frontend and backend together):
 
 ```
 GEMINI_API_KEY=your_api_key_here
-VITE_API_URL=http://localhost:4000/api
+# Optional during local development only. When empty the frontend will call /api on the same origin.
+# VITE_API_URL=http://localhost:4000/api
 ```
 
 ### 4. Start the Backend Server
@@ -60,7 +61,7 @@ cd server
 npm run dev
 ```
 
-The server will start on `http://localhost:4000` and automatically initialize the database with seed data if it's empty.
+The server will start on `http://localhost:4000` locally and automatically initialize the database with seed data if it's empty. When deployed (for example to Render), the frontend will call the backend using a relative `/api` path by default so you don't need to hard-code localhost.
 
 ### 5. Start the Frontend
 
@@ -74,15 +75,13 @@ The frontend will start on `http://localhost:3000`.
 
 ## Database
 
-The application uses SQLite for data persistence:
+This project now uses Postgres for persistence in production and development (see `server/README.md`). For local development you can run Postgres locally or provide a `DATABASE_URL` pointing to a hosted Postgres instance.
 
-- Database file: `server/data/schools.db`
-- The database is automatically initialized on first server startup
 - To manually seed the database: `cd server && npm run seed`
 
 ### Migration caution
 
-The server contains migrations which may recreate the `users` table to expand the allowed roles (for example adding `superadmin`). These migrations attempt to preserve data but can be destructive on customized or production databases. Always backup `server/data/schools.db` before starting the server or running migrations in a production environment.
+When running against an existing Postgres database, review migrations and back up data before applying schema changes.
 
 ## Project Structure
 

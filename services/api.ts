@@ -2,7 +2,9 @@ import { School } from '../types';
 
 // Get API base URL from environment variable, fallback to default
 const meta: any = (import.meta as any) || {};
-const API_BASE_URL = (meta.env && meta.env.VITE_API_URL) || 'http://localhost:4000/api';
+// Prefer explicit VITE_API_URL during development/build. In production, fall back to a
+// relative `/api` path so the frontend will call the same origin (e.g. Render service).
+const API_BASE_URL = (meta.env && meta.env.VITE_API_URL) || '/api';
 
 // Log API configuration in development
 if (meta.env && meta.env.DEV) {
