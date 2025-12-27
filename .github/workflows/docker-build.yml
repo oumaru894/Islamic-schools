@@ -22,8 +22,10 @@ on:
 # ---------------------
 # Configure these for your Docker Hub account
 env:
-  # Change 'yourusername' to your actual Docker Hub username
-  DOCKER_IMAGE_NAME: yourusername/liberia-islamic-schools
+  # IMPORTANT: Change 'yourusername' to your actual Docker Hub username
+  # Example: If your Docker Hub username is 'oumaru894', use:
+  # DOCKER_IMAGE_NAME: oumaru894/liberia-islamic-schools
+  DOCKER_IMAGE_NAME: oumaru894/liberia-islamic-schools
   
 # ============================================================================
 # JOBS SECTION
