@@ -34,15 +34,15 @@ const SchoolAdmissions: React.FC = () => {
   return (
     <div>
       <SchoolHeader school={school} currentTab={'admissions'} />
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="bg-white p-6 rounded shadow-sm border">
-          <h2 className="text-2xl font-bold mb-4">Admissions at {school.name}</h2>
-          <p className="text-slate-700 mb-4">Applications open for the upcoming academic year. Please contact the school for the admissions form or request a packet below.</p>
+      <div className="max-w-6xl mx-auto p-4 sm:p-6">
+        <div className="bg-white p-4 sm:p-6 rounded shadow-sm border">
+          <h2 className="text-xl sm:text-2xl font-bold mb-4">Admissions at {school.name}</h2>
+          <p className="text-slate-700 mb-4 sm:mb-6 text-sm sm:text-base leading-relaxed">Applications open for the upcoming academic year. Please contact the school for the admissions form or request a packet below.</p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
             <div>
-              <h3 className="font-semibold mb-2">Requirements</h3>
-              <ul className="list-disc pl-5 text-slate-700">
+              <h3 className="font-semibold mb-3 text-base sm:text-lg">Requirements</h3>
+              <ul className="list-disc pl-5 text-slate-700 space-y-2 text-sm sm:text-base">
                 <li>Completed application form</li>
                 <li>Previous school transcripts</li>
                 <li>Parent/guardian interview</li>
@@ -50,13 +50,13 @@ const SchoolAdmissions: React.FC = () => {
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-2">Tuition & Fees</h3>
-              <p className="text-slate-700">Scholarships are available for deserving students. Fee structure varies by program; contact the school for details.</p>
+              <h3 className="font-semibold mb-3 text-base sm:text-lg">Tuition & Fees</h3>
+              <p className="text-slate-700 text-sm sm:text-base leading-relaxed">Scholarships are available for deserving students. Fee structure varies by program; contact the school for details.</p>
             </div>
           </div>
 
-          <div className="mt-6">
-            <Button>Request Application Packet</Button>
+          <div className="mt-6 sm:mt-8">
+            <Button className="w-full sm:w-auto">Request Application Packet</Button>
           </div>
         </div>
       </div>

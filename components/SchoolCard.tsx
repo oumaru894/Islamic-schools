@@ -13,7 +13,7 @@ const SchoolCard: React.FC<SchoolCardProps> = ({ school }) => {
       to={`/school/${school.id}`} 
       className="block h-full group bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg hover:border-emerald-200 transition-all duration-300 flex flex-col"
     >
-      <div className="relative h-48 w-full bg-slate-200 overflow-hidden">
+      <div className="relative h-40 sm:h-48 w-full bg-slate-200 overflow-hidden">
         <img 
           src={school.image} 
           alt={school.name} 
@@ -24,7 +24,7 @@ const SchoolCard: React.FC<SchoolCardProps> = ({ school }) => {
           {school.type}
         </div>
       </div>
-      <div className="p-5 flex-1 flex flex-col">
+      <div className="p-4 sm:p-5 flex-1 flex flex-col">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center text-amber-500 text-sm font-medium">
             <Star className="h-4 w-4 fill-current mr-1" />
@@ -35,25 +35,25 @@ const SchoolCard: React.FC<SchoolCardProps> = ({ school }) => {
           </span>
         </div>
         
-        <h3 className="text-xl font-bold text-slate-900 mb-2 line-clamp-1 group-hover:text-emerald-800 transition-colors">
+        <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-2 line-clamp-1 group-hover:text-emerald-800 transition-colors">
           {school.name}
         </h3>
         
-        <div className="flex items-center text-slate-500 text-sm mb-4">
+        <div className="flex items-center text-slate-500 text-sm mb-3 sm:mb-4">
           <MapPin className="h-4 w-4 mr-1 shrink-0" />
           <span className="truncate">{school.location}</span>
         </div>
 
-        <p className="text-slate-600 text-sm mb-4 line-clamp-2 flex-1">
+        <p className="text-slate-600 text-sm mb-3 sm:mb-4 line-clamp-2 flex-1">
           {school.description}
         </p>
 
-        <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between group-hover:border-emerald-100 transition-colors">
+        <div className="mt-auto pt-3 sm:pt-4 border-t border-slate-100 flex items-center justify-between group-hover:border-emerald-100 transition-colors">
           <div className="flex items-center text-slate-500 text-xs">
             <Users className="h-4 w-4 mr-1" />
             {school.students.toLocaleString()} Students
           </div>
-          <span className="text-emerald-800 font-semibold text-sm flex items-center group-hover:translate-x-1 transition-transform">
+          <span className="text-emerald-800 font-semibold text-xs sm:text-sm flex items-center group-hover:translate-x-1 transition-transform">
             View Details <ArrowRight className="h-4 w-4 ml-1" />
           </span>
         </div>

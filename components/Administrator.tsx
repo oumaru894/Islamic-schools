@@ -63,40 +63,42 @@ const Administrator: React.FC<{ school: School }> = ({ school }) => {
   const placeholder = 'https://e7.pngegg.com/pngimages/84/165/png-clipart-united-states-avatar-organization-information-user-avatar-service-computer-wallpaper-thumbnail.png';
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="max-w-4xl w-full p-6 bg-white rounded-xl shadow-md flex items-center space-x-8">
-        {/* Vice Principal Left */}
-        <div className="flex-1 flex flex-col items-center">
-          <img
-            src={left?.photo || left?.image || placeholder}
-            alt={left?.name || 'Vice Principal'}
-            className="w-32 h-32 rounded-full mb-4 object-cover"
-          />
-          <h3 className="text-lg font-semibold">{left?.title || 'Vice Principal'}</h3>
-          <p className="text-slate-600 text-sm">{left?.name || '—'}</p>
-        </div>
+    <div className="flex items-center justify-center bg-slate-50 py-6 sm:py-8">
+      <div className="max-w-4xl w-full px-4 sm:px-6 bg-white rounded-xl shadow-md">
+        <div className="flex flex-col md:flex-row items-center md:space-x-6 lg:space-x-8 space-y-6 md:space-y-0 py-6">
+          {/* Vice Principal Left */}
+          <div className="flex-1 flex flex-col items-center w-full">
+            <img
+              src={left?.photo || left?.image || placeholder}
+              alt={left?.name || 'Vice Principal'}
+              className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full mb-3 sm:mb-4 object-cover shadow-md"
+            />
+            <h3 className="text-base sm:text-lg font-semibold text-center">{left?.title || 'Vice Principal'}</h3>
+            <p className="text-slate-600 text-xs sm:text-sm text-center">{left?.name || '—'}</p>
+          </div>
 
-        {/* Principal */}
-        <div className="flex-1 flex flex-col items-center">
-          <img
-            src={center?.photo || center?.image || placeholder}
-            alt={center?.name || 'Principal'}
-            className="w-40 h-40 rounded-full mb-4 border-4 border-emerald-500 object-cover"
-            style={{ borderColor: (school.theme && (school.theme as any).accent) || undefined }}
-          />
-          <h3 className="text-lg font-semibold">{center?.title || 'Principal'}</h3>
-          <p className="text-slate-600 text-sm">{center?.name || '—'}</p>
-        </div>
+          {/* Principal */}
+          <div className="flex-1 flex flex-col items-center w-full">
+            <img
+              src={center?.photo || center?.image || placeholder}
+              alt={center?.name || 'Principal'}
+              className="w-32 h-32 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-full mb-3 sm:mb-4 border-4 border-emerald-500 object-cover shadow-lg"
+              style={{ borderColor: (school.theme && (school.theme as any).accent) || undefined }}
+            />
+            <h3 className="text-base sm:text-lg font-semibold text-center">{center?.title || 'Principal'}</h3>
+            <p className="text-slate-600 text-xs sm:text-sm text-center">{center?.name || '—'}</p>
+          </div>
 
-        {/* Vice Principal Right */}
-        <div className="flex-1 flex flex-col items-center">
-          <img
-            src={right?.photo || right?.image || placeholder}
-            alt={right?.name || 'Vice Principal'}
-            className="w-32 h-32 rounded-full mb-4 object-cover"
-          />
-          <h3 className="text-lg font-semibold">{right?.title || 'Vice Principal'}</h3>
-          <p className="text-slate-600 text-sm">{right?.name || '—'}</p>
+          {/* Vice Principal Right */}
+          <div className="flex-1 flex flex-col items-center w-full">
+            <img
+              src={right?.photo || right?.image || placeholder}
+              alt={right?.name || 'Vice Principal'}
+              className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full mb-3 sm:mb-4 object-cover shadow-md"
+            />
+            <h3 className="text-base sm:text-lg font-semibold text-center">{right?.title || 'Vice Principal'}</h3>
+            <p className="text-slate-600 text-xs sm:text-sm text-center">{right?.name || '—'}</p>
+          </div>
         </div>
       </div>
     </div>

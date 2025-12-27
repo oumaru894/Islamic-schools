@@ -70,29 +70,29 @@ const Gallery: React.FC<GalleryProps> = ({ schoolId, summary = false }) => {
   };
   // if summary is false, the size of the text "Gallery" should be very large and bold and should be center and underline.
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h2 className={`text-2xl font-bold mb-6 ${!summary ? 'text-center underline text-4xl' : ''}`}>Gallery</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <h2 className={`${!summary ? 'text-center underline text-3xl sm:text-4xl' : 'text-xl sm:text-2xl'} font-bold mb-4 sm:mb-6`}>Gallery</h2>
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
         {currentImages.map((image) => (
-          <div key={image.id} className="rounded-lg overflow-hidden shadow-lg">
-            <img src={image.url} alt={image.caption || 'School Image'} className="w-full h-48 object-cover" />
-            {image.caption && <div className="p-2 text-sm text-gray-600">{image.caption}</div>}
+          <div key={image.id} className="rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
+            <img src={image.url} alt={image.caption || 'School Image'} className="w-full h-40 sm:h-48 object-cover" />
+            {image.caption && <div className="p-2 text-xs sm:text-sm text-gray-600 bg-white">{image.caption}</div>}
           </div>
         ))}
       </div>
       {summary ? (
-        <div className="mt-6 text-center">
-          <Link to={`/school/${schoolId}/gallery`} className="text-emerald-700 font-medium hover:underline">
+        <div className="mt-4 sm:mt-6 text-center">
+          <Link to={`/school/${schoolId}/gallery`} className="text-emerald-700 font-medium hover:underline text-sm sm:text-base">
             View More →
           </Link>
         </div>
       ) : (
-        <div className="mt-6 flex justify-center space-x-2">
+        <div className="mt-6 sm:mt-8 flex flex-wrap justify-center gap-2">
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
             <button
               key={pageNumber}
               onClick={() => handleClick(pageNumber)}
-              className={`px-3 py-1 rounded ${currentPage === pageNumber ? 'bg-emerald-700 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded text-sm sm:text-base font-medium transition-colors ${currentPage === pageNumber ? 'bg-emerald-700 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
             >
               {pageNumber}
             </button>

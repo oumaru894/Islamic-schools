@@ -67,21 +67,21 @@ const Testimonial: React.FC<TestimonialProps> = ({
   if (items.length === 0) return <div className="p-6 text-center">No testimonials available.</div>;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
-      <div className={`grid ${summary ? 'grid-cols-1 md:grid-cols-2 gap-8' : 'grid-cols-1 gap-8'}`}>
+    <div className="w-full px-4 sm:px-6 py-8 sm:py-12">
+      <div className={`grid ${summary ? 'grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8' : 'grid-cols-1 gap-6 sm:gap-8'}`}>
         {items.slice(0, summary ? 2 : items.length).map((data, index) => (
-          <div key={index} className="bg-white p-6 rounded-lg shadow-md">
-            <p className="text-slate-700 mb-4">"{data.text}"</p>
-            <div className="mt-4">
-              {data.author && <p className="font-semibold text-slate-900">{data.author}</p>}
-              {data.title && <p className="text-sm text-slate-600">{data.title}</p>}
+          <div key={index} className="bg-white p-4 sm:p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
+            <p className="text-slate-700 mb-4 text-sm sm:text-base leading-relaxed italic">"{data.text}"</p>
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              {data.author && <p className="font-semibold text-slate-900 text-sm sm:text-base">{data.author}</p>}
+              {data.title && <p className="text-xs sm:text-sm text-slate-600">{data.title}</p>}
             </div>
           </div>
         ))}
       </div>
       {summary && items.length > 2 && schoolId && (
-        <div className="mt-6 text-center">
-          <Link to={`/school/${schoolId}/testimonials`} className="text-emerald-700 font-medium hover:underline">
+        <div className="mt-4 sm:mt-6 text-center">
+          <Link to={`/school/${schoolId}/testimonials`} className="text-emerald-700 font-medium hover:underline text-sm sm:text-base">
             View More →
           </Link>
         </div>

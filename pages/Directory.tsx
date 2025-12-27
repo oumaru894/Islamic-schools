@@ -67,51 +67,51 @@ const Directory: React.FC = () => {
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen py-8">
+    <div className="bg-slate-50 min-h-screen py-6 sm:py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-4">All Islamic Schools</h1>
-          <p className="text-slate-600">Browse through our comprehensive list of integrated and religious educational institutions across Liberia.</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3 sm:mb-4">All Islamic Schools</h1>
+          <p className="text-slate-600 text-sm sm:text-base">Browse through our comprehensive list of integrated and religious educational institutions across Liberia.</p>
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-8 sticky top-20 z-30">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 mb-6 sm:mb-8 sticky top-16 sm:top-20 z-30">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search by name or location..."
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none text-sm sm:text-base"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             
-            <div className="flex gap-4">
-               <div className="relative">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+               <div className="relative flex-1 sm:flex-initial">
                   <select 
-                    className="appearance-none bg-slate-50 border border-slate-300 text-slate-700 py-2 pl-4 pr-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="appearance-none w-full bg-slate-50 border border-slate-300 text-slate-700 py-2 sm:py-2.5 pl-3 sm:pl-4 pr-8 sm:pr-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm sm:text-base"
                     value={selectedCounty}
                     onChange={(e) => setSelectedCounty(e.target.value)}
                   >
                     <option value="All">All Counties</option>
                     {Object.values(County).map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
-                  <Filter className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <Filter className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                </div>
 
-               <div className="relative">
+               <div className="relative flex-1 sm:flex-initial">
                   <select 
-                    className="appearance-none bg-slate-50 border border-slate-300 text-slate-700 py-2 pl-4 pr-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="appearance-none w-full bg-slate-50 border border-slate-300 text-slate-700 py-2 sm:py-2.5 pl-3 sm:pl-4 pr-8 sm:pr-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm sm:text-base"
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
                   >
                     <option value="All">All Types</option>
                     {Object.values(SchoolType).map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  <Filter className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <Filter className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                </div>
             </div>
           </div>
@@ -119,17 +119,17 @@ const Directory: React.FC = () => {
 
         {/* Results */}
         {filteredSchools.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {filteredSchools.map(school => (
               <SchoolCard key={school.id} school={school} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
-             <p className="text-slate-500 text-lg">No schools found matching your criteria.</p>
+          <div className="text-center py-16 sm:py-20 bg-white rounded-xl border border-dashed border-slate-300">
+             <p className="text-slate-500 text-base sm:text-lg mb-4">No schools found matching your criteria.</p>
              <button 
                 onClick={() => {setSearchTerm(''); setSelectedCounty('All'); setSelectedType('All');}}
-                className="mt-4 text-emerald-600 hover:underline"
+                className="text-emerald-600 hover:underline text-sm sm:text-base font-medium"
              >
                 Clear all filters
              </button>
