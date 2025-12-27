@@ -38,9 +38,22 @@ import { authenticateToken, requireSchoolAccess, AuthenticatedRequest } from './
 const app = express();
 
 // Configure CORS to allow frontend requests
+// Configure CORS to accept requests from the configured FRONTEND_URL, production site, and localhost dev.
+const allowedOrigins = new Set<string>([
+  'https://islamic-schools-1.onrender.com',
+  'http://localhost:3000',
+]);
+if (process.env.FRONTEND_URL) allowedOrigins.add(process.env.FRONTEND_URL);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://islamic-schools-1.onrender.com' || 'http://localhost:3000',
-  credentials: true
+  origin: (origin, callback) => {
+    // If no origin (e.g., same-origin server-to-server requests or curl), allow
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.has(origin)) return callback(null, true);
+    // not allowed
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
 }));
 
 // Allow larger JSON payloads so frontend can submit image DataURLs when uploading images inline
@@ -281,15 +294,16 @@ app.post('/api/schools/:id/gallery', authenticateToken, requireSchoolAccess, asy
 
       let publicUrl: string;
       const cloudinaryConfigured = Boolean(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET));
+      
       if (cloudinaryConfigured) {
         // Upload using Cloudinary from the DataURI
         try {
           const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/gallery` });
           publicUrl = uploadResult?.secure_url;
-          console.log('Uploaded gallery image to Cloudinary:', publicUrl);
         } catch (err: any) {
-          console.error('Cloudinary upload error (gallery):', err && err.message ? err.message : err);
-          return res.status(500).json({ error: 'Image upload failed' });
+          console.error('Cloudinary upload error (gallery):', err);
+          const errorMessage = err?.error?.message || err?.message || 'Image upload to Cloudinary failed';
+          return res.status(500).json({ error: errorMessage });
         }
       } else {
         // fallback to filesystem if cloudinary not configured
@@ -399,13 +413,15 @@ app.post('/api/schools/:id/people', authenticateToken, requireSchoolAccess, asyn
       if (!matches) return res.status(400).json({ error: 'Invalid fileData format' });
       const b64 = matches[2];
       const dataUri = `data:${matches[1]};base64,${b64}`;
+      
       if (cloudinary.config().cloud_name) {
         try {
           const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/people` });
           photoUrl = uploadResult.secure_url;
         } catch (err: any) {
-          console.error('Cloudinary upload error:', err && err.message ? err.message : err);
-          return res.status(500).json({ error: 'Image upload failed' });
+          console.error('Cloudinary upload error (people):', err);
+          const errorMessage = err?.error?.message || err?.message || 'Image upload to Cloudinary failed';
+          return res.status(500).json({ error: errorMessage });
         }
       } else {
         const mime = matches[1];
@@ -445,10 +461,10 @@ app.put('/api/schools/:id/people/:personId', authenticateToken, requireSchoolAcc
         try {
           const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${req.params.id}/people` });
           updates.image = uploadResult?.secure_url;
-          console.log('Uploaded person image to Cloudinary:', updates.image);
         } catch (err: any) {
-          console.error('Cloudinary upload error (person update):', err && err.message ? err.message : err);
-          return res.status(500).json({ error: 'Image upload failed' });
+          console.error('Cloudinary upload error (person update):', err);
+          const errorMessage = err?.error?.message || err?.message || 'Image upload to Cloudinary failed';
+          return res.status(500).json({ error: errorMessage });
         }
       } else {
         const mime = matches[1];
@@ -486,34 +502,6 @@ function requireSuperAdmin(req: AuthenticatedRequest, res: any, next: any) {
   if (!req.user) return res.status(401).json({ error: 'Authentication required' });
   if (req.user.role !== 'superadmin') return res.status(403).json({ error: 'Superadmin access required' });
   next();
-}
-
-// Debug endpoint: upload a tiny test image and insert a person (only when ENABLE_DEBUG_UPLOADS=1)
-if (process.env.ENABLE_DEBUG_UPLOADS === '1') {
-  app.post('/__debug/test-upload', async (req, res) => {
-    try {
-      const schoolId = String(req.body.schoolId || '1');
-      // 1x1 PNG data URI
-      const dataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAgMBgXqQnE8AAAAASUVORK5CYII=';
-      if (process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)) {
-        try {
-          const uploadResult: any = await cloudinary.uploader.upload(dataUri, { folder: `islamic_schools/${schoolId}/debug` });
-          const url = uploadResult?.secure_url;
-          console.log('Debug upload result URL:', url);
-          const person = await schoolService.addPerson(schoolId, 'Debug User', 'Tester', 'Debug upload', url);
-          return res.json({ ok: true, person, url });
-        } catch (err: any) {
-          console.error('Debug: Cloudinary upload error:', err && err.message ? err.message : err);
-          return res.status(500).json({ error: 'Cloudinary upload failed', detail: String(err && (err.message || err)) });
-        }
-      } else {
-        return res.status(400).json({ error: 'Cloudinary not configured' });
-      }
-    } catch (err: any) {
-      console.error('Debug upload error:', err && err.message ? err.message : err);
-      res.status(500).json({ error: 'Debug upload failed', detail: String(err && (err.message || err)) });
-    }
-  });
 }
 
 // Create a new admin (superadmin only)

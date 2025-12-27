@@ -1,16 +1,14 @@
 import { School } from '../types';
 
-// Get API base URL from environment variable, fallback to default
+// Get API base URL from environment variable, fallback to relative /api so the
+// frontend uses same-origin in production and allows Vite dev proxy in development.
 const meta: any = (import.meta as any) || {};
-// Prefer explicit VITE_API_URL during development/build. In production, fall back to a
-// relative `/api` path so the frontend will call the same origin (e.g. Render service).
 const API_BASE_URL = (meta.env && meta.env.VITE_API_URL) || '/api';
 
-// Log API configuration in development
+// Log API configuration in development only
 if (meta.env && meta.env.DEV) {
   console.log('API Base URL:', API_BASE_URL);
 }
-
 // fetch all staff by school id
 export async function fetchStaffBySchoolId(schoolId: string): Promise<any[]> {
   const response = await fetch(`${API_BASE_URL}/schools/${schoolId}/staff`);
@@ -103,7 +101,7 @@ export async function addGalleryItem(schoolId: string, payload: { url?: string; 
   const res = await fetch(`${API_BASE_URL}/schools/${schoolId}/gallery`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-  body: JSON.stringify(payload)
+    body: JSON.stringify(payload)
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Failed to add gallery item' }));
