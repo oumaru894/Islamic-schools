@@ -147,7 +147,7 @@ const SchoolHome: React.FC = () => {
       <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-6 space-y-12">
           <div>
-            <h3 className="text-xl font-bold mb-4">Leadership</h3>
+            <h3 className="text-xl font-bold mb-4">Administration</h3>
             <Administrator school={school as any} />
           </div>
 
