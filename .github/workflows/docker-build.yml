@@ -22,10 +22,10 @@ on:
 # ---------------------
 # Configure these for your Docker Hub account
 env:
-  # IMPORTANT: Change 'yourusername' to your actual Docker Hub username
-  # Example: If your Docker Hub username is 'oumaru894', use:
-  # DOCKER_IMAGE_NAME: oumaru894/liberia-islamic-schools
-  DOCKER_IMAGE_NAME: oumaru894/liberia-islamic-schools
+  # Docker image name matching your GitHub repository
+  # Format: dockerhub-username/image-name
+  # Using lowercase as Docker requires lowercase image names
+  DOCKER_IMAGE_NAME: oumaru894/islamic-schools
   
 # ============================================================================
 # JOBS SECTION
@@ -132,13 +132,13 @@ jobs:
 # DOCKER IMAGE TAGS:
 # ------------------
 # Main branch push creates:
-#   - yourusername/liberia-islamic-schools:latest
-#   - yourusername/liberia-islamic-schools:main
-#   - yourusername/liberia-islamic-schools:main-abc1234 (git SHA)
+#   - oumaru894/islamic-schools:latest
+#   - oumaru894/islamic-schools:main
+#   - oumaru894/islamic-schools:main-abc1234 (git SHA)
 #
 # Develop branch push creates:
-#   - yourusername/liberia-islamic-schools:develop
-#   - yourusername/liberia-islamic-schools:develop-abc1234 (git SHA)
+#   - oumaru894/islamic-schools:develop
+#   - oumaru894/islamic-schools:develop-abc1234 (git SHA)
 #
 # REQUIRED GITHUB SECRETS:
 # ------------------------
@@ -175,10 +175,10 @@ jobs:
 #
 # 4. Update DOCKER_IMAGE_NAME:
 #    - Change 'yourusername' to your Docker Hub username
-#    - Example: DOCKER_IMAGE_NAME: johndoe/liberia-islamic-schools
+#    - Example: DOCKER_IMAGE_NAME: oumaru894/islamic-schools
 #
 # 5. Push to GitHub:
-#    git add .github/workflows/ci-cd.yml
+#    git add .github/workflows/docker-build.yml
 #    git commit -m "feat: add Docker build and push workflow"
 #    git push origin main
 #
@@ -187,10 +187,10 @@ jobs:
 # PULLING THE IMAGE:
 # ------------------
 # After the workflow completes, pull your image:
-#   docker pull yourusername/liberia-islamic-schools:latest
+#   docker pull oumaru894/islamic-schools:latest
 #
 # Run the container:
-#   docker run -p 4000:4000 -e DATABASE_URL="your-db-url" yourusername/liberia-islamic-schools:latest
+#   docker run -p 4000:4000 -e DATABASE_URL="your-db-url" oumaru894/islamic-schools:latest
 #
 # LEARN MORE:
 # -----------
