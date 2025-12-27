@@ -1,0 +1,198 @@
+name: Docker Build & Push
+
+# ============================================================================
+# Docker Build and Push Pipeline
+# ============================================================================
+# This workflow builds a Docker image and pushes it to Docker Hub
+# Flow: GitHub Push → Build Docker Image → Push to Docker Hub
+# ============================================================================
+
+# TRIGGER CONDITIONS
+# ------------------
+# This workflow runs on every push to main or develop branches
+on:
+  push:
+    branches: 
+      - main
+      - develop
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+
+# ENVIRONMENT VARIABLES
+# ---------------------
+# Configure these for your Docker Hub account
+env:
+  # Change 'yourusername' to your actual Docker Hub username
+  DOCKER_IMAGE_NAME: yourusername/liberia-islamic-schools
+  
+# ============================================================================
+# JOBS SECTION
+# ============================================================================
+
+jobs:
+  # ==========================================================================
+  # JOB: BUILD AND PUSH DOCKER IMAGE
+  # ==========================================================================
+  # This job builds the Docker image and pushes it to Docker Hub
+  # ==========================================================================
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    
+    steps:
+      # STEP 1: Checkout the repository
+      # ---------------------------------
+      # Get all the code from GitHub so Docker can build it
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      # STEP 2: Set up Docker Buildx
+      # ------------------------------
+      # Buildx is an advanced Docker build tool that enables:
+      # - Multi-platform builds (amd64, arm64, etc.)
+      # - Build caching for faster builds
+      # - Better build output
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      # STEP 3: Login to Docker Hub
+      # -----------------------------
+      # Authenticate with Docker Hub using credentials from GitHub Secrets
+      # Required secrets:
+      #   - DOCKERHUB_USERNAME: Your Docker Hub username
+      #   - DOCKERHUB_TOKEN: Your Docker Hub access token (create at hub.docker.com)
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      # STEP 4: Extract metadata (tags, labels)
+      # -----------------------------------------
+      # This automatically generates proper tags for the Docker image:
+      # - 'latest' for main branch
+      # - 'develop' for develop branch
+      # - git commit SHA for traceability
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.DOCKER_IMAGE_NAME }}
+          tags: |
+            # Tag with branch name (main → latest, develop → develop)
+            type=ref,event=branch
+            # Tag with git commit SHA (first 7 characters)
+            type=sha,prefix={{branch}}-
+            # Tag 'latest' only for main branch
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      # STEP 5: Build and Push Docker Image
+      # -------------------------------------
+      # This builds the Docker image using the Dockerfile and pushes to Docker Hub
+      # The build uses caching to speed up subsequent builds
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .                          # Build context (current directory)
+          file: ./Dockerfile                  # Path to Dockerfile
+          push: true                          # Push to Docker Hub after build
+          tags: ${{ steps.meta.outputs.tags }}  # Use tags from metadata step
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha                # Use GitHub Actions cache
+          cache-to: type=gha,mode=max         # Save cache for next build
+          
+      # STEP 6: Print image details
+      # -----------------------------
+      # Display information about the built and pushed image
+      - name: Image digest and tags
+        run: |
+          echo "✅ Docker image built and pushed successfully!"
+          echo "📦 Image tags:"
+          echo "${{ steps.meta.outputs.tags }}"
+          echo "🔗 Pull command:"
+          echo "docker pull ${{ env.DOCKER_IMAGE_NAME }}:latest"
+
+# ============================================================================
+# END OF WORKFLOW
+# ============================================================================
+#
+# WORKFLOW EXECUTION FLOW:
+# ------------------------
+# 1. Trigger: Push to main or develop branch
+# 2. Checkout code from GitHub
+# 3. Set up Docker Buildx (advanced build engine)
+# 4. Login to Docker Hub with credentials
+# 5. Generate image tags and metadata
+# 6. Build Docker image from Dockerfile
+# 7. Push image to Docker Hub
+# 8. Display success message with image details
+#
+# DOCKER IMAGE TAGS:
+# ------------------
+# Main branch push creates:
+#   - yourusername/liberia-islamic-schools:latest
+#   - yourusername/liberia-islamic-schools:main
+#   - yourusername/liberia-islamic-schools:main-abc1234 (git SHA)
+#
+# Develop branch push creates:
+#   - yourusername/liberia-islamic-schools:develop
+#   - yourusername/liberia-islamic-schools:develop-abc1234 (git SHA)
+#
+# REQUIRED GITHUB SECRETS:
+# ------------------------
+# Add these in: Settings → Secrets and variables → Actions
+#
+# 1. DOCKERHUB_USERNAME
+#    - Your Docker Hub username
+#    - Example: johndoe
+#
+# 2. DOCKERHUB_TOKEN
+#    - Docker Hub access token (NOT your password!)
+#    - Create at: https://hub.docker.com/settings/security
+#    - Click "New Access Token"
+#    - Give it a name (e.g., "github-actions")
+#    - Copy the token and add it as a secret
+#
+# SETUP INSTRUCTIONS:
+# -------------------
+# 1. Create Docker Hub account at https://hub.docker.com
+#
+# 2. Create access token:
+#    - Go to https://hub.docker.com/settings/security
+#    - Click "New Access Token"
+#    - Name: "github-actions"
+#    - Permissions: "Read & Write"
+#    - Copy the token (you'll only see it once!)
+#
+# 3. Add secrets to GitHub:
+#    - Go to your repo → Settings → Secrets and variables → Actions
+#    - Click "New repository secret"
+#    - Name: DOCKERHUB_USERNAME, Value: your-docker-username
+#    - Click "Add secret"
+#    - Repeat for DOCKERHUB_TOKEN with the access token
+#
+# 4. Update DOCKER_IMAGE_NAME:
+#    - Change 'yourusername' to your Docker Hub username
+#    - Example: DOCKER_IMAGE_NAME: johndoe/liberia-islamic-schools
+#
+# 5. Push to GitHub:
+#    git add .github/workflows/ci-cd.yml
+#    git commit -m "feat: add Docker build and push workflow"
+#    git push origin main
+#
+# 6. Check GitHub Actions tab to see the build!
+#
+# PULLING THE IMAGE:
+# ------------------
+# After the workflow completes, pull your image:
+#   docker pull yourusername/liberia-islamic-schools:latest
+#
+# Run the container:
+#   docker run -p 4000:4000 -e DATABASE_URL="your-db-url" yourusername/liberia-islamic-schools:latest
+#
+# LEARN MORE:
+# -----------
+# - Docker Hub: https://hub.docker.com
+# - Docker Buildx: https://docs.docker.com/buildx/working-with-buildx/
+# - GitHub Actions for Docker: https://docs.docker.com/build/ci/github-actions/
+# ============================================================================
