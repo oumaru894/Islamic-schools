@@ -1,28 +1,25 @@
 # ============================================================================
-# CI/CD Pipeline for Liberia Islamic Schools Directory
+# Docker Build and Push Pipeline
 # ============================================================================
-# This workflow automates the build, test, and deployment process
-# It runs on every push and pull request to main or develop branches
+# This workflow builds a Docker image and pushes it to Docker Hub
+# Flow: GitHub Push → Build Docker Image → Push to Docker Hub
 # ============================================================================
 
-name: CI/CD Pipeline
+name: Docker Build & Push
 
 # TRIGGER CONDITIONS
 # ------------------
-# This section defines WHEN this workflow should run
+# This workflow runs on every push to main or develop branches
 on:
   push:
-    # Run when code is pushed to these branches
-    branches: [main, develop]
-  pull_request:
-    # Run when a pull request is opened/updated targeting these branches
     branches: [main, develop]
 
 # ENVIRONMENT VARIABLES
 # ---------------------
 # Global variables available to all jobs in this workflow
 env:
-  NODE_VERSION: '18.x'  # Node.js version to use across all jobs
+  DOCKER_IMAGE_NAME: liberia-islamic-schools  # Change this to your Docker Hub username/image-name
+  DOCKER_REGISTRY: docker.io                   # Docker Hub registry
 
 # ============================================================================
 # JOBS SECTION
@@ -127,7 +124,7 @@ jobs:
       # The dist/ folder contains our built frontend (HTML, CSS, JS)
       # retention-days: 7 means artifacts are kept for 7 days
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-build  # Name to identify this artifact
           path: dist/           # Folder to upload
@@ -177,7 +174,7 @@ jobs:
 
       # Upload the compiled backend code for later jobs to use
       - name: Upload backend artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-build
           path: server/dist/  # Upload the compiled JavaScript files
@@ -307,14 +304,14 @@ jobs:
       # Get the frontend files that were built in the build-frontend job
       # These files are stored as artifacts and can be downloaded by name
       - name: Download frontend artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: frontend-build  # Must match the name used in upload
           path: dist/           # Where to save the files
 
       # Download the backend build artifacts
       - name: Download backend artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: backend-build
           path: server/dist/
@@ -378,7 +375,7 @@ jobs:
 
       # Download the built frontend files
       - name: Download frontend artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: frontend-build
           path: dist/
