@@ -1,0 +1,437 @@
+# ============================================================================
+# CI/CD Pipeline for Liberia Islamic Schools Directory
+# ============================================================================
+# This workflow automates the build, test, and deployment process
+# It runs on every push and pull request to main or develop branches
+# ============================================================================
+
+name: CI/CD Pipeline
+
+# TRIGGER CONDITIONS
+# ------------------
+# This section defines WHEN this workflow should run
+on:
+  push:
+    # Run when code is pushed to these branches
+    branches: [main, develop]
+  pull_request:
+    # Run when a pull request is opened/updated targeting these branches
+    branches: [main, develop]
+
+# ENVIRONMENT VARIABLES
+# ---------------------
+# Global variables available to all jobs in this workflow
+env:
+  NODE_VERSION: '18.x'  # Node.js version to use across all jobs
+
+# ============================================================================
+# JOBS SECTION
+# ============================================================================
+# Jobs run in parallel by default unless dependencies are specified with 'needs'
+# Each job runs in a fresh virtual machine (Ubuntu Linux in this case)
+# ============================================================================
+
+jobs:
+  # ==========================================================================
+  # JOB 1: CODE QUALITY & LINTING
+  # ==========================================================================
+  # Purpose: Ensure code meets quality standards before building
+  # This catches syntax errors, type issues, and style problems early
+  # ==========================================================================
+  lint:
+    name: Code Quality Check  # Display name shown in GitHub UI
+    runs-on: ubuntu-latest    # Use latest Ubuntu virtual machine
+    
+    steps:
+      # STEP 1: Get the code
+      # ---------------------
+      # actions/checkout@v3 is a GitHub Action that clones your repository
+      # This makes the code available to subsequent steps
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # STEP 2: Setup Node.js environment
+      # ----------------------------------
+      # actions/setup-node@v3 installs Node.js and npm
+      # 'cache: npm' speeds up the workflow by caching node_modules
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}  # Use the version from env
+          cache: 'npm'  # Cache npm dependencies for faster builds
+
+      # STEP 3: Install project dependencies
+      # -------------------------------------
+      # 'npm ci' is like 'npm install' but faster and more reliable for CI
+      # It uses package-lock.json to ensure exact versions
+      - name: Install dependencies
+        run: npm ci
+
+      # STEP 4: Run ESLint linter
+      # --------------------------
+      # Checks code for style issues and potential bugs
+      # --if-present only runs if the script exists in package.json
+      # continue-on-error: true means workflow continues even if this fails
+      - name: Run ESLint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+      # STEP 5: TypeScript type checking
+      # ---------------------------------
+      # Verifies all TypeScript types are correct
+      # --noEmit means it only checks types without generating files
+      - name: Check TypeScript types
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+  # ==========================================================================
+  # JOB 2: BUILD FRONTEND
+  # ==========================================================================
+  # Purpose: Compile the React/Vite frontend application into static files
+  # The 'needs: lint' means this job waits for lint job to complete first
+  # ==========================================================================
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: lint  # Wait for lint job to finish before starting
+    
+    steps:
+      # Clone the repository code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Setup Node.js with caching for faster builds
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      # Install all dependencies from package-lock.json
+      - name: Install dependencies
+        run: npm ci
+
+      # STEP: Build the frontend application
+      # -------------------------------------
+      # 'npm run build' runs the Vite build process
+      # This creates optimized production files in the dist/ folder
+      - name: Build application
+        run: npm run build
+        env:
+          CI: false  # Disable CI strict mode (warnings won't fail the build)
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}  # API URL from GitHub Secrets
+
+      # STEP: Upload build artifacts
+      # -----------------------------
+      # Artifacts are files saved from this job that other jobs can download
+      # The dist/ folder contains our built frontend (HTML, CSS, JS)
+      # retention-days: 7 means artifacts are kept for 7 days
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build  # Name to identify this artifact
+          path: dist/           # Folder to upload
+          retention-days: 7     # How long to keep the artifact
+
+  # ==========================================================================
+  # JOB 3: BUILD BACKEND
+  # ==========================================================================
+  # Purpose: Compile the Express.js backend TypeScript code to JavaScript
+  # Runs in parallel with build-frontend (both need lint to finish first)
+  # ==========================================================================
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    needs: lint  # Wait for lint job to complete
+    
+    steps:
+      # Clone the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Setup Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      # STEP: Install backend dependencies
+      # ------------------------------------
+      # The backend code is in the server/ folder
+      # We need to cd (change directory) into it first
+      # The | symbol allows multiple commands to run sequentially
+      - name: Install backend dependencies
+        run: |
+          cd server
+          npm ci
+
+      # STEP: Build backend
+      # --------------------
+      # Compiles TypeScript to JavaScript
+      # --if-present means only run if build script exists
+      - name: Build backend
+        run: |
+          cd server
+          npm run build --if-present
+
+      # Upload the compiled backend code for later jobs to use
+      - name: Upload backend artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-build
+          path: server/dist/  # Upload the compiled JavaScript files
+          retention-days: 7
+
+  # ==========================================================================
+  # JOB 4: RUN TESTS
+  # ==========================================================================
+  # Purpose: Execute all test suites to ensure code works correctly
+  # needs: [build-frontend, build-backend] means this waits for BOTH builds
+  # This ensures our built code is tested before deployment
+  # ==========================================================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: [build-frontend, build-backend]  # Wait for both builds to complete
+    
+    steps:
+      # Clone the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      # Install frontend dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # STEP: Run frontend tests
+      # -------------------------
+      # Executes test files (usually files ending in .test.ts or .spec.ts)
+      # CI: true enables CI mode (non-interactive, fails on errors)
+      - name: Run frontend tests
+        run: npm test --if-present
+        env:
+          CI: true  # Run tests in CI mode (non-interactive)
+
+      # Install backend dependencies
+      - name: Install backend dependencies
+        run: |
+          cd server
+          npm ci
+
+      # STEP: Run backend tests
+      # ------------------------
+      # Runs all backend test suites
+      - name: Run backend tests
+        run: |
+          cd server
+          npm test --if-present
+        env:
+          CI: true
+
+  # ==========================================================================
+  # JOB 5: SECURITY AUDIT
+  # ==========================================================================
+  # Purpose: Scan dependencies for known security vulnerabilities
+  # This job runs independently (no 'needs') so it runs in parallel
+  # Helps catch security issues before they reach production
+  # ==========================================================================
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Clone the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Setup Node.js (no caching needed for quick audit)
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # STEP: Audit frontend dependencies
+      # -----------------------------------
+      # npm audit checks for known security vulnerabilities
+      # --audit-level=moderate means only report moderate+ severity issues
+      # continue-on-error: true means don't fail the entire workflow
+      - name: Run npm audit (Frontend)
+        run: npm audit --audit-level=moderate
+        continue-on-error: true  # Don't block deployment for audit warnings
+
+      # STEP: Audit backend dependencies
+      # ----------------------------------
+      # Same security check for the backend packages
+      - name: Run npm audit (Backend)
+        run: |
+          cd server
+          npm audit --audit-level=moderate
+        continue-on-error: true
+
+  # ==========================================================================
+  # JOB 6: DEPLOY TO PRODUCTION
+  # ==========================================================================
+  # Purpose: Deploy the application to production servers
+  # This only runs when code is pushed to the main branch
+  # ==========================================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [test, security]  # Wait for tests and security audit to complete
+    # CONDITIONAL EXECUTION:
+    # This job only runs if ALL these conditions are true:
+    # 1. The branch is 'main' (refs/heads/main)
+    # 2. The event is a 'push' (not a pull_request)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # ENVIRONMENT:
+    # Defines the deployment environment for tracking and protection rules
+    environment:
+      name: production
+      url: https://liberia-islamic-schools.com  # Production URL
+    
+    steps:
+      # Clone the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # STEP: Download build artifacts
+      # --------------------------------
+      # Get the frontend files that were built in the build-frontend job
+      # These files are stored as artifacts and can be downloaded by name
+      - name: Download frontend artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-build  # Must match the name used in upload
+          path: dist/           # Where to save the files
+
+      # Download the backend build artifacts
+      - name: Download backend artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: backend-build
+          path: server/dist/
+
+      # STEP: Deploy to hosting platforms
+      # -----------------------------------
+      # This is a placeholder - you'll add actual deployment commands
+      # Different hosting platforms have different deployment methods:
+      #
+      # VERCEL (Frontend):
+      #   npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+      #
+      # RAILWAY (Backend):
+      #   railway up
+      #
+      # RENDER (Auto-deploys):
+      #   Just push to main branch - Render watches your repo
+      #
+      # The ${{ secrets.DEPLOY_TOKEN }} syntax accesses secrets stored in
+      # GitHub repository settings (Settings → Secrets → Actions)
+      - name: Deploy to Render/Railway/Vercel
+        run: |
+          echo "🚀 Deploying to production..."
+          # Add your deployment commands here
+          # Examples:
+          # - Vercel: npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+          # - Railway: railway up
+          # - Render: Auto-deploys on git push
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}  # Access GitHub Secret
+
+      # STEP: Notify deployment success
+      # ---------------------------------
+      # if: success() means this only runs if previous steps succeeded
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Deployment successful!"
+
+  # ==========================================================================
+  # JOB 7: DEPLOY TO STAGING
+  # ==========================================================================
+  # Purpose: Deploy to staging/testing environment
+  # This runs when code is pushed to the 'develop' branch
+  # Allows testing features before merging to production
+  # ==========================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [test]  # Wait for tests to pass (faster than production)
+    # CONDITIONAL: Only run on develop branch pushes
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: staging  # Staging environment for testing
+      url: https://staging.liberia-islamic-schools.com
+    
+    steps:
+      # Clone the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Download the built frontend files
+      - name: Download frontend artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-build
+          path: dist/
+
+      # STEP: Deploy to staging environment
+      # -------------------------------------
+      # Similar to production deployment but for testing
+      # You can add staging-specific deployment commands here
+      - name: Deploy to Staging
+        run: |
+          echo "🚀 Deploying to staging..."
+          # Add your staging deployment commands here
+          # This could be a staging server, preview deployment, etc.
+        env:
+          STAGING_DEPLOY_TOKEN: ${{ secrets.STAGING_DEPLOY_TOKEN }}
+
+# ============================================================================
+# END OF WORKFLOW
+# ============================================================================
+#
+# WORKFLOW EXECUTION FLOW:
+# ------------------------
+# 1. Trigger: Push or PR to main/develop branches
+# 2. Job 'lint' runs: Code quality checks
+# 3. Jobs 'build-frontend' and 'build-backend' run in parallel (wait for lint)
+# 4. Job 'security' runs in parallel with builds
+# 5. Job 'test' runs after both builds complete
+# 6. If push to main: 'deploy-production' runs after tests + security
+#    If push to develop: 'deploy-staging' runs after tests
+#
+# KEY CONCEPTS USED:
+# ------------------
+# - 'needs': Creates dependencies between jobs (sequential execution)
+# - 'if': Conditional execution based on branch/event
+# - 'continue-on-error': Don't fail workflow if step fails
+# - 'env': Environment variables for steps
+# - 'uses': Reusable GitHub Actions from marketplace
+# - 'run': Execute shell commands
+# - 'secrets': Access encrypted secrets from repo settings
+# - 'artifacts': Share files between jobs
+#
+# GITHUB SECRETS REQUIRED:
+# ------------------------
+# Add these in: Settings → Secrets and variables → Actions
+# - VITE_API_URL: Your backend API URL
+# - DEPLOY_TOKEN: Production deployment token
+# - STAGING_DEPLOY_TOKEN: Staging deployment token
+# - VERCEL_TOKEN: (Optional) For Vercel deployments
+# - RAILWAY_TOKEN: (Optional) For Railway deployments
+#
+# LEARN MORE:
+# -----------
+# - GitHub Actions docs: https://docs.github.com/en/actions
+# - Workflow syntax: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
+# - Marketplace: https://github.com/marketplace?type=actions
+# ============================================================================

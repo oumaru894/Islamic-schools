@@ -4,7 +4,11 @@
 
 # Liberia Islamic Schools Directory
 
-A comprehensive directory application for Islamic schools across Liberia, built with React, Express, and SQLite.
+[![CI/CD Pipeline](https://github.com/yourusername/liberia-islamic-schools-directory/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/yourusername/liberia-islamic-schools-directory/actions/workflows/ci-cd.yml)
+[![Deploy to Production](https://github.com/yourusername/liberia-islamic-schools-directory/actions/workflows/deploy.yml/badge.svg)](https://github.com/yourusername/liberia-islamic-schools-directory/actions/workflows/deploy.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+A comprehensive directory application for Islamic schools across Liberia, built with React, Express, and SQLite. Fully responsive design optimized for all devices.
 
 ## Features
 
@@ -109,6 +113,22 @@ When running against an existing Postgres database, review migrations and back u
 - `PUT /api/schools/:id` - Update a school
 - `DELETE /api/schools/:id` - Delete a school
 - `GET /api/search?q=term` - Search schools
+
+## CI/CD Pipeline
+
+This project includes a comprehensive CI/CD pipeline using GitHub Actions. See [CI_CD_SETUP.md](CI_CD_SETUP.md) for detailed information.
+
+### Quick Start
+
+1. **Configure GitHub Secrets** (see [CI_CD_SETUP.md](CI_CD_SETUP.md))
+2. **Push to develop branch** for staging deployment
+3. **Push to main branch** for production deployment
+
+### Workflows
+
+- **CI/CD Pipeline** - Automated build, test, and deployment
+- **Pull Request Checks** - Code quality validation
+- **Production Deployment** - Manual and automated deployments
 
 ## View your app in AI Studio
 
